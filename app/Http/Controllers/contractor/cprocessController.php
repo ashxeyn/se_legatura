@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\contractor;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Contractor\cProcessRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ class cprocessController extends Controller
 		]);
 	}
 
-	public function milestoneStepOne(Request $request)
+	public function milestoneStepOne(cProcessRequest $request)
 	{
 		if (!Session::has('user')) {
 			return response()->json([
@@ -59,11 +60,7 @@ class cprocessController extends Controller
 			], 404);
 		}
 
-		$validated = $request->validate([
-			'project_id' => 'required|integer',
-			'milestone_name' => 'required|string|max:200',
-			'payment_mode' => 'required|in:downpayment,full_payment'
-		]);
+		$validated = $request->validated();
 
 		if (!$this->contractorClass->projectBelongsToContractor($validated['project_id'], $contractor->contractor_id)) {
 			return response()->json([
@@ -97,7 +94,7 @@ class cprocessController extends Controller
 		]);
 	}
 
-	public function milestoneStepTwo(Request $request)
+	public function milestoneStepTwo(cProcessRequest $request)
 	{
 		$step1 = Session::get('milestone_setup_step1');
 
@@ -108,39 +105,16 @@ class cprocessController extends Controller
 			], 400);
 		}
 
-		$rules = [
-			'start_date' => 'required|date',
-			'end_date' => 'required|date',
-			'total_project_cost' => 'required|numeric|min:0.01'
-		];
-
-		if ($step1['payment_mode'] === 'downpayment') {
-			$rules['downpayment_amount'] = 'required|numeric|min:0';
-		}
-
-		$validated = $request->validate($rules);
+		$validated = $request->validated();
 
 		$startDate = strtotime($validated['start_date']);
 		$endDate = strtotime($validated['end_date']);
-
-		if ($startDate === false || $endDate === false || $startDate > $endDate) {
-			return response()->json([
-				'success' => false,
-				'errors' => ['Start date must be before end date']
-			], 422);
-		}
 
 		$totalCost = (float) $validated['total_project_cost'];
 		$downpayment = 0.00;
 
 		if ($step1['payment_mode'] === 'downpayment') {
 			$downpayment = (float) $validated['downpayment_amount'];
-			if ($downpayment < 0 || $downpayment >= $totalCost) {
-				return response()->json([
-					'success' => false,
-					'errors' => ['Downpayment must be less than the total project cost']
-				], 422);
-			}
 		}
 
 		Session::put('milestone_setup_step2', [
@@ -159,7 +133,7 @@ class cprocessController extends Controller
 		]);
 	}
 
-	public function submitMilestone(Request $request)
+	public function submitMilestone(cProcessRequest $request)
 	{
 		$step1 = Session::get('milestone_setup_step1');
 		$step2 = Session::get('milestone_setup_step2');
@@ -172,67 +146,10 @@ class cprocessController extends Controller
 		}
 
 		$itemsRaw = $request->input('items');
-		if (!$itemsRaw) {
-			return response()->json([
-				'success' => false,
-				'errors' => ['Please provide at least one milestone item']
-			], 422);
-		}
-
 		$items = json_decode($itemsRaw, true);
-		if (!is_array($items) || empty($items)) {
-			return response()->json([
-				'success' => false,
-				'errors' => ['Invalid milestone items data']
-			], 422);
-		}
 
-		$totalPercentage = 0;
 		$startDate = strtotime($step2['start_date']);
 		$endDate = strtotime($step2['end_date']);
-
-		foreach ($items as $item) {
-			if (!isset($item['percentage'], $item['title'], $item['description'], $item['date_to_finish'])) {
-				return response()->json([
-					'success' => false,
-					'errors' => ['Each milestone item must have percentage, title, description, and date']
-				], 422);
-			}
-
-			$percentage = (float) $item['percentage'];
-			if ($percentage <= 0) {
-				return response()->json([
-					'success' => false,
-					'errors' => ['Milestone item percentages must be greater than zero']
-				], 422);
-			}
-
-			$itemDate = strtotime($item['date_to_finish']);
-			if ($itemDate === false || $itemDate < $startDate || $itemDate > $endDate) {
-				return response()->json([
-					'success' => false,
-					'errors' => ['Milestone item dates must be within the project schedule']
-				], 422);
-			}
-
-			$totalPercentage += $percentage;
-		}
-
-		if (round($totalPercentage, 2) !== 100.00) {
-			return response()->json([
-				'success' => false,
-				'errors' => ['Milestone percentages must add up to exactly 100%']
-			], 422);
-		}
-
-		$lastItem = end($items);
-		$lastDate = strtotime($lastItem['date_to_finish']);
-		if (date('Y-m-d', $lastDate) !== date('Y-m-d', $endDate)) {
-			return response()->json([
-				'success' => false,
-				'errors' => ['The last milestone item must finish on the project end date']
-			], 422);
-		}
 
 		try {
 			DB::beginTransaction();
