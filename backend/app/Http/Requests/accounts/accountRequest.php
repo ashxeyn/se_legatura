@@ -261,19 +261,6 @@ class accountRequest extends FormRequest
     protected function switchContractorFinalRules()
     {
         return [
-            'company_name' => 'required|string|max:255',
-            'company_phone' => [
-                'required',
-                'string',
-                'regex:/^09[0-9]{9}$/'
-            ],
-            'years_of_experience' => 'required|integer|min:0',
-            'contractor_type_id' => 'required|integer',
-            'contractor_type_other' => 'nullable|string|max:255',
-            'services_offered' => 'required|string',
-            'business_address' => 'required|string|max:500',
-            'company_website' => 'nullable|url|max:255',
-            'company_social_media' => 'nullable|string|max:255',
             'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:5120'
         ];
     }

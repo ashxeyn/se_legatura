@@ -1,6 +1,77 @@
 // Global Variables
 var currentUserType = '';
-var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+
+// Role Switching Function for Dashboard
+function switchRole(role) {
+	console.log('switchRole called with role:', role);
+
+	// Show loading state
+	event.target.disabled = true;
+	event.target.textContent = 'Switching...';
+
+	// Get CSRF token
+	var csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+	var csrfTokenValue = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
+
+	console.log('CSRF token found:', !!csrfTokenValue);
+
+	if (!csrfTokenValue) {
+		console.error('CSRF token not found');
+		alert('Security token not found. Please refresh the page.');
+		// Reset button state
+		event.target.disabled = false;
+		event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+		return;
+	}
+
+	console.log('Making API call to /api/role/switch');
+
+	// Make API call to switch role
+	fetch('/api/role/switch', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'X-CSRF-TOKEN': csrfTokenValue
+		},
+		body: JSON.stringify({
+			role: role
+		})
+	})
+	.then(response => {
+		console.log('Response status:', response.status);
+		return response.json();
+	})
+	.then(data => {
+		console.log('Response data:', data);
+		if (data.success) {
+			// Reload the page to update the role display
+			window.location.reload();
+		} else {
+			alert('Failed to switch role: ' + data.message);
+			// Reset button state
+			event.target.disabled = false;
+			event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+		}
+	})
+	.catch(error => {
+		console.error('Error:', error);
+		alert('An error occurred while switching roles');
+		// Reset button state
+		event.target.disabled = false;
+		event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+	});
+}
+
+// Debug function to test if script is loaded
+function testScriptLoaded() {
+	console.log('account.js script loaded successfully');
+	return true;
+}
+
+// Call debug function when script loads
+testScriptLoaded();
 
 // Utility Functions
 function showError(message) {
@@ -370,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				formData.set('business_address_barangay', barangaySelect.options[barangaySelect.selectedIndex].getAttribute('data-name'));
 			}
 
-			// Use signup endpoint always (no separate switch step1 for company info)
+			// Use signup endpoint for company info (first step)
 			var endpoint = '/accounts/signup/contractor/step1';
 
 			fetch(endpoint, {

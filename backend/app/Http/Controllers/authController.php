@@ -60,9 +60,17 @@ class authController extends Controller
         $result = $this->authService->login($request->username, $request->password);
 
         if ($result['success']) {
-            // Store user info in session (for web)
             Session::put('user', $result['user']);
             Session::put('userType', $result['userType']);
+            // Set default current role for session-based role tracking
+            $user = $result['user'];
+            if ($user->user_type === 'both') {
+                Session::put('current_role', 'contractor');
+            } elseif ($user->user_type === 'property_owner') {
+                Session::put('current_role', 'owner');
+            } else {
+                Session::put('current_role', $user->user_type); // 'contractor'
+            }
 
             if ($request->expectsJson()) {
 
@@ -84,14 +92,12 @@ class authController extends Controller
             }
         } else {
             if ($request->expectsJson()) {
-                // API error response
                 return response()->json([
                     'success' => false,
                     'message' => $result['message'],
                     'errors' => []
                 ], 401);
             } else {
-                // Web error response
                 return back()->withErrors(['login' => $result['message']])->withInput();
             }
         }
@@ -669,18 +675,16 @@ class authController extends Controller
             }
         }
 
-        // Get data para sa dropdowns
+        // Get data para sa dropdowns (same as signup)
         $contractorTypes = $this->accountClass->getContractorTypes();
         $occupations = $this->accountClass->getOccupations();
         $validIds = $this->accountClass->getValidIds();
         $picabCategories = ['AAAA', 'AAA', 'AA', 'A', 'B', 'C', 'D', 'Trade/E'];
-
         $provinces = $this->psgcService->getProvinces();
 
         $existingData = $this->getExistingUserData($user->user_id, $currentRole);
 
         if (request()->expectsJson()) {
-
             return response()->json([
                 'success' => true,
                 'message' => 'Role switch form data',
@@ -696,7 +700,6 @@ class authController extends Controller
                 'is_switch_mode' => true
             ], 200);
         } else {
-
             return view('accounts.signup', compact(
                 'contractorTypes',
                 'occupations',
@@ -736,11 +739,12 @@ class authController extends Controller
     // Switch to Contractor
     public function switchContractorStep1(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_contractor_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        if (!Session::has('user')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
         }
-        // Merge with existing step 1 data
-        $step1Data = Session::get('switch_contractor_step1');
+
+        $step1Data = Session::get('switch_contractor_step1', []);
+
         $step1Data = array_merge($step1Data, $request->only(['first_name','middle_name','last_name','username','company_email']));
         Session::put('switch_contractor_step1', $step1Data);
 
@@ -750,9 +754,10 @@ class authController extends Controller
     // Switch to Contractor Step 2
     public function switchContractorStep2(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_contractor_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        if (!Session::has('user')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
         }
+
         $validated = $request->validated();
 
         if ($request->hasFile('dti_sec_registration_photo')) {
@@ -849,6 +854,8 @@ class authController extends Controller
             Session::put('user', $updatedUser);
             Session::put('userType', 'both');
 
+            Session::put('current_role', 'contractor'); // Default to contractor since they just added contractor role
+
             DB::commit();
             return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
         } catch (\Exception $e) {
@@ -859,25 +866,44 @@ class authController extends Controller
 
     // DB calls are just laravel query builder
 
-    // Switch to Owner
+    // Switch to Owner Step 1 (Account Setup)
     public function switchOwnerStep1(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_owner_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        if (!Session::has('user')) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
+            }
         }
 
-        $step1Data = Session::get('switch_owner_step1');
-        $step1Data = array_merge($step1Data, $request->only(['username','email']));
+        $validated = $request->validated();
+
+        // Store account info for owner switch
+        $step1Data = [
+            'username' => $validated['username'],
+            'email' => $validated['email']
+        ];
+
         Session::put('switch_owner_step1', $step1Data);
 
-        return response()->json(['success' => true, 'message' => 'Account information saved']);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Account information saved',
+                'step' => 2,
+                'next_step' => 'documents'
+            ]);
+        } else {
+            return response()->json(['success' => true, 'message' => 'Account information saved']);
+        }
     }
 
     // Switch to Owner Step 2
     public function switchOwnerStep2(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_owner_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired. Please start again.']], 401);
+        if (!Session::has('user')) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
+            }
         }
 
         $validated = $request->validated();
@@ -904,21 +930,40 @@ class authController extends Controller
         }
 
         Session::put('switch_owner_step2', $validated);
-        return response()->json(['success' => true, 'message' => 'Documents uploaded successfully']);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Documents uploaded successfully',
+                'step' => 3,
+                'next_step' => 'final'
+            ]);
+        } else {
+            return response()->json(['success' => true, 'message' => 'Documents uploaded successfully']);
+        }
     }
 
     // Switch to Owner Final
     public function switchOwnerFinal(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_owner_step1') || !Session::has('switch_owner_step2')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous steps not completed']], 401);
+        if (!Session::has('user')) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
+            }
         }
 
         $validated = $request->validated();
-
         $user = Session::get('user');
-        $step1 = Session::get('switch_owner_step1');
-        $step2 = Session::get('switch_owner_step2');
+
+        $ownerStep1 = Session::get('owner_step1');
+        $switchStep1 = Session::get('switch_owner_step1');
+        $switchStep2 = Session::get('switch_owner_step2');
+
+        if (!$ownerStep1) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Personal information missing. Please start again.']], 400);
+            }
+        }
 
         try {
             DB::beginTransaction();
@@ -930,45 +975,71 @@ class authController extends Controller
                 DB::table('users')->where('user_id', $user->user_id)->update(['profile_pic' => $profilePicPath]);
             }
 
-            $address = $step1['address'];
-
+            // Get existing contractor user data
             $contractorUser = DB::table('contractor_users')->where('user_id', $user->user_id)->first();
 
+            // Create property owner record using personal info from step1 and documents from step2
             DB::table('property_owners')->insert([
                 'user_id' => $user->user_id,
                 'last_name' => $contractorUser->authorized_rep_lname,
                 'middle_name' => $contractorUser->authorized_rep_mname,
                 'first_name' => $contractorUser->authorized_rep_fname,
                 'phone_number' => $contractorUser->phone_number,
-                'address' => $address,
-                'valid_id_id' => $step2['valid_id_id'],
-                'valid_id_photo' => $step2['valid_id_photo'],
-                'valid_id_back_photo' => $step2['valid_id_back_photo'],
-                'police_clearance' => $step2['police_clearance'],
-                'date_of_birth' => $step1['date_of_birth'],
-                'age' => $step1['age'],
-                'occupation_id' => $step1['occupation_id'],
-                'occupation_other' => $step1['occupation_other'] ?? null,
+                'valid_id_id' => $switchStep2['valid_id_id'],
+                'valid_id_back_photo' => $switchStep2['valid_id_back_photo'], // Using back photo instead of number
+                'valid_id_photo' => $switchStep2['valid_id_photo'],
+                'police_clearance' => $switchStep2['police_clearance'],
+                'date_of_birth' => $ownerStep1['date_of_birth'],
+                'age' => $ownerStep1['age'],
+                'occupation_id' => $ownerStep1['occupation_id'],
+                'occupation_other' => $ownerStep1['occupation_other'] ?? null,
+                'address' => $ownerStep1['address'],
                 'verification_status' => 'pending',
                 'verification_date' => null,
                 'created_at' => now(),
             ]);
 
+            // Update user type to 'both'
             DB::table('users')->where('user_id', $user->user_id)->update([
                 'user_type' => 'both',
                 'updated_at' => now(),
             ]);
 
-            Session::forget(['switch_owner_step1', 'switch_owner_step2']);
+            // Update session with new user data
             $updatedUser = DB::table('users')->where('user_id', $user->user_id)->first();
             Session::put('user', $updatedUser);
             Session::put('userType', 'both');
+            Session::put('current_role', 'owner'); // Default to owner since they just added owner role
+
+            // Clear switch session data
+            Session::forget(['switch_owner_step1', 'switch_owner_step2', 'owner_step1']);
 
             DB::commit();
-            return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Role switch successful! You now have both roles.',
+                    'user_type' => 'both',
+                    'current_role' => 'owner',
+                    'redirect_url' => '/dashboard'
+                ], 201);
+            } else {
+                return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
+            }
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'errors' => ['An error occurred: ' . $e->getMessage()]], 500);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'An error occurred during role switch',
+                    'errors' => [$e->getMessage()]
+                ], 500);
+            } else {
+                return response()->json(['success' => false, 'errors' => ['An error occurred: ' . $e->getMessage()]], 500);
+            }
         }
     }
 

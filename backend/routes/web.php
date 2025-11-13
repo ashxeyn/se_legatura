@@ -59,6 +59,10 @@ Route::post('/contractor/milestone/setup/step1', [cprocessController::class, 'mi
 Route::post('/contractor/milestone/setup/step2', [cprocessController::class, 'milestoneStepTwo']);
 Route::post('/contractor/milestone/setup/submit', [cprocessController::class, 'submitMilestone']);
 
+// Role Management Routes for 'both' users
+Route::post('/api/role/switch', [cprocessController::class, 'switchRole']);
+Route::get('/api/role/current', [cprocessController::class, 'getCurrentRole']);
+
 // Dispute Routes
 Route::get('/both/disputes', [disputeController::class, 'showDisputePage']);
 Route::post('/both/disputes/file', [disputeController::class, 'fileDispute']);

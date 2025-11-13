@@ -2,6 +2,40 @@
 var currentUserType = '';
 var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
+// Role Switching Function for Dashboard
+function switchRole(role) {
+	event.target.disabled = true;
+	event.target.textContent = 'Switching...';
+
+	fetch('/api/role/switch', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+		},
+		body: JSON.stringify({
+			role: role
+		})
+	})
+	.then(response => response.json())
+	.then(data => {
+		if (data.success) {
+			window.location.reload();
+		} else {
+			alert('Failed to switch role: ' + data.message);
+			event.target.disabled = false;
+			event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+		}
+	})
+	.catch(error => {
+		console.error('Error:', error);
+		alert('An error occurred while switching roles');
+		event.target.disabled = false;
+		event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+	});
+}
+
 // Utility Functions
 function showError(message) {
 	var errorDiv = document.getElementById('errorMessages');
