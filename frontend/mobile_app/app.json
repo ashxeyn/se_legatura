@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Legatura",
+    "slug": "legatura-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "sdkVersion": "54.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.legatura.mobile"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

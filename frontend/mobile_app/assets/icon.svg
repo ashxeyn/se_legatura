@@ -1,0 +1,6 @@
+<!-- Simple SVG placeholder icon -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#6366f1"/>
+  <text x="512" y="600" font-family="Arial" font-size="200" fill="white" text-anchor="middle" font-weight="bold">L</text>
+  <circle cx="512" cy="400" r="150" fill="none" stroke="white" stroke-width="20"/>
+</svg>
