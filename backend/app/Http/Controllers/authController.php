@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\Accounts\accountRequest;
 use App\Services\authService;
 use App\Services\psgcApiService;
 use App\Models\accounts\accountClass;
@@ -23,70 +24,82 @@ class authController extends Controller
         $this->psgcService = new psgcApiService();
     }
 
-    private function validateIdNumberFormat($idType, $idNumber)
-    {
-        switch ($idType) {
-            case 9:
-                if (!preg_match('/^\d{12}$/', $idNumber)) {
-                    return 'National ID must be exactly 12 digits (numeric).';
-                }
-                break;
-            case 4:
-                if (!preg_match('/^\d{12}$/', $idNumber)) {
-                    return 'PhilHealth ID must be exactly 12 digits (numeric).';
-                }
-                break;
-            case 3:
-                if (!preg_match('/^\d{12}$/', $idNumber)) {
-                    return 'SSS ID/UMID must be exactly 12 digits (numeric).';
-                }
-                break;
-            case 2:
-                if (!preg_match('/^[A-Za-z0-9]{12,15}$/', $idNumber)) {
-                    return 'Driver\'s License must be 12-15 alphanumeric characters.';
-                }
-                break;
-            case 1:
-                if (!preg_match('/^[A-Za-z0-9]{7,9}$/', $idNumber)) {
-                    return 'Philippine Passport must be 7-9 alphanumeric characters.';
-                }
-                break;
-            default:
-                if (!preg_match('/^[A-Za-z0-9]{8,15}$/', $idNumber)) {
-                    return 'Valid ID must be 8-15 alphanumeric characters.';
-                }
-                break;
-        }
-        return 'success';
-    }
+
 
     public function showLoginForm()
     {
-        return view('accounts.login');
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Login form data',
+                'form_config' => [
+                    'action' => '/accounts/login',
+                    'method' => 'POST',
+                    'fields' => [
+                        'username' => [
+                            'type' => 'text',
+                            'required' => true,
+                            'label' => 'Username or Email'
+                        ],
+                        'password' => [
+                            'type' => 'password',
+                            'required' => true,
+                            'label' => 'Password'
+                        ]
+                    ]
+                ]
+            ], 200);
+        } else {
+            return view('accounts.login');
+        }
     }
 
     // Handle login
-    public function login(Request $request)
+    public function login(accountRequest $request)
     {
-        $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string'
-        ]);
-
         $result = $this->authService->login($request->username, $request->password);
 
         if ($result['success']) {
-            // Store user info in session
             Session::put('user', $result['user']);
             Session::put('userType', $result['userType']);
-
-            if ($result['userType'] === 'admin') {
-                return redirect('/admin/dashboard')->with('success', 'Welcome Admin!');
+            // Set default current role for session-based role tracking
+            $user = $result['user'];
+            if ($user->user_type === 'both') {
+                Session::put('current_role', 'contractor');
+            } elseif ($user->user_type === 'property_owner') {
+                Session::put('current_role', 'owner');
             } else {
-                return redirect('/dashboard')->with('success', 'Welcome back!');
+                Session::put('current_role', $user->user_type); // 'contractor'
+            }
+
+            if ($request->expectsJson()) {
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Login successful',
+                    'user' => $result['user'],
+                    'userType' => $result['userType'],
+                    // TODO: Add token here when Sanctum is installed
+                    // 'token' => $user->createToken('mobile-app')->plainTextToken
+                ], 200);
+            } else {
+
+                if ($result['userType'] === 'admin') {
+                    return redirect('/admin/dashboard')->with('success', 'Welcome Admin!');
+                } else {
+                    return redirect('/dashboard')->with('success', 'Welcome back!');
+                }
             }
         } else {
-            return back()->withErrors(['login' => $result['message']])->withInput();
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'],
+                    'errors' => []
+                ], 401);
+            } else {
+                return back()->withErrors(['login' => $result['message']])->withInput();
+            }
         }
     }
 
@@ -100,41 +113,47 @@ class authController extends Controller
         $provinces = $this->psgcService->getProvinces();
         $picabCategories = $this->accountClass->getPicabCategories();
 
-        return view('accounts.signup', compact('contractorTypes', 'occupations', 'validIds', 'provinces', 'picabCategories'));
+        if (request()->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Signup form data',
+                'data' => [
+                    'contractor_types' => $contractorTypes,
+                    'occupations' => $occupations,
+                    'valid_ids' => $validIds,
+                    'provinces' => $provinces,
+                    'picab_categories' => $picabCategories
+                ]
+            ], 200);
+        } else {
+
+            return view('accounts.signup', compact('contractorTypes', 'occupations', 'validIds', 'provinces', 'picabCategories'));
+        }
     }
 
     // Handle role selection
-    public function selectRole(Request $request)
+    public function selectRole(accountRequest $request)
     {
-        $request->validate([
-            'user_type' => 'required|in:contractor,property_owner'
-        ]);
-
         Session::put('signup_user_type', $request->user_type);
         Session::put('signup_step', 1);
 
-        return response()->json(['success' => true, 'user_type' => $request->user_type]);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Role selected successfully',
+                'user_type' => $request->user_type,
+                'next_step' => 'step1'
+            ], 200);
+        } else {
+            return response()->json(['success' => true, 'user_type' => $request->user_type]);
+        }
     }
 
     // Handle Contractor Step 1
-    public function contractorStep1(Request $request)
+    public function contractorStep1(accountRequest $request)
     {
-        $request->validate([
-            'company_name' => 'required|string|max:200',
-            'company_phone' => 'required|regex:/^09[0-9]{9}$/|size:11',
-            'years_of_experience' => 'required|numeric|min:0',
-            'contractor_type_id' => 'required|exists:contractor_types,type_id',
-            'services_offered' => 'required|string',
-            'business_address_street' => 'required|string',
-            'business_address_barangay' => 'required|string',
-            'business_address_city' => 'required|string',
-            'business_address_province' => 'required|string',
-            'business_address_postal' => 'required|string',
-            'company_website' => 'nullable|string|max:255',
-            'company_social_media' => 'nullable|string|max:255',
-            'contractor_type_other_text' => 'nullable|string|max:200'
-        ]);
-
         $businessAddress = $request->business_address_street . ', ' .
                           $request->business_address_barangay . ', ' .
                           $request->business_address_city . ', ' .
@@ -157,59 +176,30 @@ class authController extends Controller
         // Only treat as switch mode if user is logged in na and verified signup na
         $user = Session::get('user');
         if ($user && isset($user->is_verified) && $user->is_verified == 1) {
-            // User is logged in and verified - this is role switch
             Session::put('switch_contractor_step1', $step1Data);
         }
 
-        // Always keep the base signup session data for the final step
         Session::put('contractor_step1', $step1Data);
 
         Session::put('signup_step', 2);
 
-        return response()->json(['success' => true, 'step' => 2]);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Contractor step 1 completed',
+                'step' => 2,
+                'next_step' => 'contractor_step2'
+            ], 200);
+        } else {
+
+            return response()->json(['success' => true, 'step' => 2]);
+        }
     }
 
     // Handle Contractor Step 2
-    public function contractorStep2(Request $request)
+    public function contractorStep2(accountRequest $request)
     {
-        $request->validate([
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'username' => 'required|string|max:50',
-            'company_email' => 'required|email|max:100',
-            'password' => 'required|string|min:8',
-            'password_confirmation' => 'required|same:password'
-        ]);
-
-        if ($this->accountClass->usernameExists($request->username)) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['username' => ['Username already exists']]
-            ], 422);
-        }
-
-        if ($this->accountClass->emailExists($request->company_email)) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['company_email' => ['Email already exists']]
-            ], 422);
-        }
-
-        if ($this->accountClass->companyEmailExists($request->company_email)) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['company_email' => ['Company email already exists']]
-            ], 422);
-        }
-
-        $passwordValidation = $this->authService->validatePasswordStrength($request->password);
-        if (!$passwordValidation['valid']) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['password' => [$passwordValidation['message']]]
-            ], 422);
-        }
 
         // Generate and send OTP
         $otp = $this->authService->generateOtp();
@@ -229,49 +219,63 @@ class authController extends Controller
 
         Session::put('signup_step', 3);
 
-        return response()->json(['success' => true, 'step' => 3, 'message' => 'OTP sent to email']);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP sent to email',
+                'step' => 3,
+                'next_step' => 'verify_otp'
+            ], 200);
+        } else {
+
+            return response()->json(['success' => true, 'step' => 3, 'message' => 'OTP sent to email']);
+        }
     }
 
     // Contractor Step 3
-    public function contractorVerifyOtp(Request $request)
+    public function contractorVerifyOtp(accountRequest $request)
     {
-        $request->validate([
-            'otp' => 'required|string|size:6'
-        ]);
-
         $step2Data = Session::get('contractor_step2');
 
         // Verify OTP
         if (!$this->authService->verifyOtp($request->otp, $step2Data['otp_hash'])) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['otp' => ['Invalid OTP']]
-            ], 422);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid OTP',
+                    'errors' => ['otp' => ['Invalid OTP']]
+                ], 422);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['otp' => ['Invalid OTP']]
+                ], 422);
+            }
         }
 
         Session::put('signup_step', 4);
 
-        return response()->json(['success' => true, 'step' => 4]);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP verified successfully',
+                'step' => 4,
+                'next_step' => 'contractor_step4'
+            ], 200);
+        } else {
+
+            return response()->json(['success' => true, 'step' => 4]);
+        }
     }
 
     // Contractor Step 4
-    public function contractorStep4(Request $request)
+    public function contractorStep4(accountRequest $request)
     {
-        $request->validate([
-            'picab_number' => 'required|string|max:100|unique:contractors,picab_number',
-            'picab_category' => 'required|string|max:100',
-            'picab_expiration_date' => 'required|date|after:today',
-            'business_permit_number' => 'required|string|max:100|unique:contractors,business_permit_number',
-            'business_permit_city' => 'required|string|max:100',
-            'business_permit_expiration' => 'required|date|after:today',
-            'tin_business_reg_number' => 'required|string|max:100|unique:contractors,tin_business_reg_number',
-            'dti_sec_registration_photo' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120'
-        ]);
-
         // Handle file upload
         $dtiSecPath = $request->file('dti_sec_registration_photo')->store('DTI_SEC', 'public');
 
-        // Store in session
         Session::put('contractor_step4', [
             'picab_number' => $request->picab_number,
             'picab_category' => $request->picab_category,
@@ -289,12 +293,8 @@ class authController extends Controller
     }
 
     // Handle Contractor Final Step
-    public function contractorFinalStep(Request $request)
+    public function contractorFinalStep(accountRequest $request)
     {
-        $request->validate([
-            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048'
-        ]);
-
         // Get all session data
         $step1 = Session::get('contractor_step1');
         $step2 = Session::get('contractor_step2');
@@ -375,31 +375,28 @@ class authController extends Controller
         // Clear session
         Session::forget(['signup_user_type', 'signup_step', 'contractor_step1', 'contractor_step2', 'contractor_step4']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Registration successful! Please wait for admin approval.',
-            'redirect' => '/accounts/login'
-        ]);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful! Please wait for admin approval.',
+                'user_id' => $userId,
+                'contractor_id' => $contractorId,
+                'redirect_url' => '/accounts/login'
+            ], 201);
+        } else {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful! Please wait for admin approval.',
+                'redirect' => '/accounts/login'
+            ]);
+        }
     }
 
     // Handle Property Owner Step 1
-    public function propertyOwnerStep1(Request $request)
+    public function propertyOwnerStep1(accountRequest $request)
     {
-        $request->validate([
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'occupation_id' => 'required|exists:occupations,id',
-            'date_of_birth' => 'required|date|before:today',
-            'phone_number' => 'required|regex:/^09[0-9]{9}$/|size:11',
-            'owner_address_street' => 'required|string|max:255',
-            'owner_address_province' => 'required|string|max:100',
-            'owner_address_city' => 'required|string|max:100',
-            'owner_address_barangay' => 'required|string|max:100',
-            'owner_address_postal' => 'required|string|max:10',
-            'occupation_other_text' => 'nullable|string|max:200'
-        ]);
-
         // Age
         $age = $this->authService->calculateAge($request->date_of_birth);
 
@@ -428,55 +425,33 @@ class authController extends Controller
             Session::put('switch_owner_step1', $step1Data);
         }
 
-        // Always keep the base signup session data for the final step
         Session::put('owner_step1', $step1Data);
 
         Session::put('signup_step', 2);
 
-        return response()->json(['success' => true, 'step' => 2]);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Contractor step 1 completed',
+                'step' => 2,
+                'next_step' => 'contractor_step2'
+            ], 200);
+        } else {
+
+            return response()->json(['success' => true, 'step' => 2]);
+        }
     }
 
     // Handle Property Owner Step 2
-    public function propertyOwnerStep2(Request $request)
+    public function propertyOwnerStep2(accountRequest $request)
     {
-        $request->validate([
-            'username' => 'required|string|max:50',
-            'email' => 'required|email|max:100',
-            'password' => 'required|string|min:8',
-            'password_confirmation' => 'required|same:password'
-        ]);
-
-        // Check if username exists
-        if ($this->accountClass->usernameExists($request->username)) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['username' => ['Username already exists']]
-            ], 422);
-        }
-
-        // Check if email exists
-        if ($this->accountClass->emailExists($request->email)) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['email' => ['Email already exists']]
-            ], 422);
-        }
-
-        // Validate password strength
-        $passwordValidation = $this->authService->validatePasswordStrength($request->password);
-        if (!$passwordValidation['valid']) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['password' => [$passwordValidation['message']]]
-            ], 422);
-        }
 
         // Generate and send OTP
         $otp = $this->authService->generateOtp();
         $otpHash = $this->authService->hashOtp($otp);
         $this->authService->sendOtpEmail($request->email, $otp);
 
-        // Store in session
         Session::put('owner_step2', [
             'username' => $request->username,
             'email' => $request->email,
@@ -486,58 +461,81 @@ class authController extends Controller
 
         Session::put('signup_step', 3);
 
-        return response()->json(['success' => true, 'step' => 3, 'message' => 'OTP sent to email']);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP sent to email',
+                'step' => 3,
+                'next_step' => 'verify_otp'
+            ], 200);
+        } else {
+
+            return response()->json(['success' => true, 'step' => 3, 'message' => 'OTP sent to email']);
+        }
     }
 
     // Property Owner Step 3
-    public function propertyOwnerVerifyOtp(Request $request)
+    public function propertyOwnerVerifyOtp(accountRequest $request)
     {
-        $request->validate([
-            'otp' => 'required|string|size:6'
-        ]);
-
         $step2Data = Session::get('owner_step2');
 
         // Verify OTP
         if (!$this->authService->verifyOtp($request->otp, $step2Data['otp_hash'])) {
-            return response()->json([
-                'success' => false,
-                'errors' => ['otp' => ['Invalid OTP']]
-            ], 422);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid OTP',
+                    'errors' => ['otp' => ['Invalid OTP']]
+                ], 422);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['otp' => ['Invalid OTP']]
+                ], 422);
+            }
         }
 
         Session::put('signup_step', 4);
 
-        return response()->json(['success' => true, 'step' => 4]);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP verified successfully',
+                'step' => 4,
+                'next_step' => 'property_owner_step4'
+            ], 200);
+        } else {
+
+            return response()->json(['success' => true, 'step' => 4]);
+        }
     }
 
     // Property Owner Step 4
-    public function propertyOwnerStep4(Request $request)
+    public function propertyOwnerStep4(accountRequest $request)
     {
-        $request->validate([
-            'valid_id_id' => 'required|exists:valid_ids,id',
-            'valid_id_number' => 'required|string|max:100',
-            'valid_id_photo' => 'required|file|mimes:jpg,jpeg,png|max:5120',
-            'police_clearance' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120'
-        ]);
+        // Handle file uploads
+        $validIdPath = null;
+        $validIdBackPath = null;
+        $policeClearancePath = null;
 
-        // Validate ID number format based on ID type
-        $validationResult = $this->validateIdNumberFormat($request->valid_id_id, $request->valid_id_number);
-        if ($validationResult !== 'success') {
-            return response()->json([
-                'success' => false,
-                'errors' => ['valid_id_number' => [$validationResult]]
-            ], 422);
+        if ($request->hasFile('valid_id_photo')) {
+            $validIdPath = $request->file('valid_id_photo')->store('validID', 'public');
         }
 
-        // Handle file uploads
-        $validIdPath = $request->file('valid_id_photo')->store('validID', 'public');
-        $policeClearancePath = $request->file('police_clearance')->store('policeClearance', 'public');
+        if ($request->hasFile('valid_id_back_photo')) {
+            $validIdBackPath = $request->file('valid_id_back_photo')->store('validID', 'public');
+        }
+
+        if ($request->hasFile('police_clearance')) {
+            $policeClearancePath = $request->file('police_clearance')->store('policeClearance', 'public');
+        }
 
         Session::put('owner_step4', [
             'valid_id_id' => $request->valid_id_id,
-            'valid_id_number' => $request->valid_id_number,
             'valid_id_photo' => $validIdPath,
+            'valid_id_back_photo' => $validIdBackPath,
             'police_clearance' => $policeClearancePath
         ]);
 
@@ -547,12 +545,8 @@ class authController extends Controller
     }
 
     // Handle Property Owner Final Step
-    public function propertyOwnerFinalStep(Request $request)
+    public function propertyOwnerFinalStep(accountRequest $request)
     {
-        $request->validate([
-            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048'
-        ]);
-
         // Get all session data
         $step1 = Session::get('owner_step1');
         $step2 = Session::get('owner_step2');
@@ -600,8 +594,8 @@ class authController extends Controller
             'last_name' => $step1['last_name'],
             'phone_number' => $step1['phone_number'],
             'valid_id_id' => $step4['valid_id_id'],
-            'valid_id_number' => $step4['valid_id_number'],
             'valid_id_photo' => $step4['valid_id_photo'],
+            'valid_id_back_photo' => $step4['valid_id_back_photo'],
             'police_clearance' => $step4['police_clearance'],
             'date_of_birth' => $step1['date_of_birth'],
             'age' => $step1['age'],
@@ -613,18 +607,39 @@ class authController extends Controller
         // Clear session
         Session::forget(['signup_user_type', 'signup_step', 'owner_step1', 'owner_step2', 'owner_step4']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Registration successful! You can now login.',
-            'redirect' => '/accounts/login'
-        ]);
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful! You can now login.',
+                'user_id' => $userId,
+                'redirect_url' => '/accounts/login'
+            ], 201);
+        } else {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful! Please wait for verification.',
+                'redirect' => '/accounts/login'
+            ]);
+        }
     }
 
     // Logout
     public function logout()
     {
         Session::flush();
-        return redirect('/accounts/login')->with('success', 'Logged out successfully');
+
+        if (request()->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out successfully'
+            ], 200);
+        } else {
+
+            return redirect('/accounts/login')->with('success', 'Logged out successfully');
+        }
     }
 
     // ROLE SWITCHING METHODS
@@ -633,7 +648,15 @@ class authController extends Controller
     public function showSwitchForm()
     {
         if (!Session::has('user')) {
-            return redirect('/accounts/login')->with('error', 'Please login first');
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required',
+                    'redirect_url' => '/accounts/login'
+                ], 401);
+            } else {
+                return redirect('/accounts/login')->with('error', 'Please login first');
+            }
         }
 
         $user = Session::get('user');
@@ -641,34 +664,52 @@ class authController extends Controller
 
         // Check if user already has both roles
         if ($user->user_type === 'both') {
-            return redirect('/dashboard')->with('error', 'You already have both roles');
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You already have both roles',
+                    'redirect_url' => '/dashboard'
+                ], 400);
+            } else {
+                return redirect('/dashboard')->with('error', 'You already have both roles');
+            }
         }
 
-        // Get data para sa dropdowns
+        // Get data para sa dropdowns (same as signup)
         $contractorTypes = $this->accountClass->getContractorTypes();
         $occupations = $this->accountClass->getOccupations();
         $validIds = $this->accountClass->getValidIds();
         $picabCategories = ['AAAA', 'AAA', 'AA', 'A', 'B', 'C', 'D', 'Trade/E'];
-
         $provinces = $this->psgcService->getProvinces();
 
         $existingData = $this->getExistingUserData($user->user_id, $currentRole);
 
-        // \Log::info('Switch form existing data', [
-        //     'currentRole' => $currentRole,
-        //     'existingData' => $existingData
-        // ]);
-
-        // Reuse signup form
-        return view('accounts.signup', compact(
-            'contractorTypes',
-            'occupations',
-            'validIds',
-            'picabCategories',
-            'provinces',
-            'currentRole',
-            'existingData'
-        ))->with('isSwitchMode', true);
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Role switch form data',
+                'current_role' => $currentRole,
+                'existing_data' => $existingData,
+                'form_data' => [
+                    'contractor_types' => $contractorTypes,
+                    'occupations' => $occupations,
+                    'valid_ids' => $validIds,
+                    'picab_categories' => $picabCategories,
+                    'provinces' => $provinces
+                ],
+                'is_switch_mode' => true
+            ], 200);
+        } else {
+            return view('accounts.signup', compact(
+                'contractorTypes',
+                'occupations',
+                'validIds',
+                'picabCategories',
+                'provinces',
+                'currentRole',
+                'existingData'
+            ))->with('isSwitchMode', true);
+        }
     }
 
     // Get existing user data
@@ -696,45 +737,28 @@ class authController extends Controller
     }
 
     // Switch to Contractor
-    public function switchContractorStep1(Request $request)
+    public function switchContractorStep1(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_contractor_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        if (!Session::has('user')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
         }
 
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'username' => 'required|string|max:50',
-            'company_email' => 'required|email|max:100',
-        ]);
+        $step1Data = Session::get('switch_contractor_step1', []);
 
-        // Merge with existing step 1 data
-        $step1Data = Session::get('switch_contractor_step1');
-        $step1Data = array_merge($step1Data, $validated);
+        $step1Data = array_merge($step1Data, $request->only(['first_name','middle_name','last_name','username','company_email']));
         Session::put('switch_contractor_step1', $step1Data);
 
         return response()->json(['success' => true, 'message' => 'Account information saved']);
     }
 
     // Switch to Contractor Step 2
-    public function switchContractorStep2(Request $request)
+    public function switchContractorStep2(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_contractor_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        if (!Session::has('user')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
         }
 
-        $validated = $request->validate([
-            'picab_number' => 'required|string|max:100|unique:contractors,picab_number',
-            'picab_category' => 'required|in:AAAA,AAA,AA,A,B,C,D,Trade/E',
-            'picab_expiration_date' => 'required|date|after:today',
-            'business_permit_number' => 'required|string|max:100|unique:contractors,business_permit_number',
-            'business_permit_city' => 'required|string|max:100',
-            'business_permit_expiration' => 'required|date|after:today',
-            'tin_business_reg_number' => 'required|string|max:100|unique:contractors,tin_business_reg_number',
-            'dti_sec_registration_photo' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
+        $validated = $request->validated();
 
         if ($request->hasFile('dti_sec_registration_photo')) {
             $file = $request->file('dti_sec_registration_photo');
@@ -748,7 +772,7 @@ class authController extends Controller
     }
 
     // Switch to Contractor Final
-    public function switchContractorFinal(Request $request)
+    public function switchContractorFinal(accountRequest $request)
     {
         // \Log::info('Switch Contractor Final - Started');
         // \Log::info('Has user session: ' . (Session::has('user') ? 'YES' : 'NO'));
@@ -760,9 +784,7 @@ class authController extends Controller
         //     return response()->json(['success' => false, 'errors' => ['Session expired or previous steps not completed']], 401);
         // }
 
-        $validated = $request->validate([
-            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-        ]);
+        $validated = $request->validated();
 
         $user = Session::get('user');
         $step1 = Session::get('switch_contractor_step1');
@@ -818,7 +840,7 @@ class authController extends Controller
                 'authorized_rep_fname' => $ownerData->first_name,
                 'phone_number' => $ownerData->phone_number,
                 'role' => 'owner',
-                'is_active' => 1,
+                'is_active' => 0,
                 'created_at' => now(),
             ]);
 
@@ -832,6 +854,8 @@ class authController extends Controller
             Session::put('user', $updatedUser);
             Session::put('userType', 'both');
 
+            Session::put('current_role', 'contractor'); // Default to contractor since they just added contractor role
+
             DB::commit();
             return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
         } catch (\Exception $e) {
@@ -842,49 +866,60 @@ class authController extends Controller
 
     // DB calls are just laravel query builder
 
-    // Switch to Owner
-    public function switchOwnerStep1(Request $request)
+    // Switch to Owner Step 1 (Account Setup)
+    public function switchOwnerStep1(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_owner_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        if (!Session::has('user')) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
+            }
         }
 
-        $validated = $request->validate([
-            'username' => 'required|string|max:50',
-            'email' => 'required|email|max:100',
-        ]);
+        $validated = $request->validated();
 
-        $step1Data = Session::get('switch_owner_step1');
-        $step1Data = array_merge($step1Data, $validated);
+        // Store account info for owner switch
+        $step1Data = [
+            'username' => $validated['username'],
+            'email' => $validated['email']
+        ];
+
         Session::put('switch_owner_step1', $step1Data);
 
-        return response()->json(['success' => true, 'message' => 'Account information saved']);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Account information saved',
+                'step' => 2,
+                'next_step' => 'documents'
+            ]);
+        } else {
+            return response()->json(['success' => true, 'message' => 'Account information saved']);
+        }
     }
 
     // Switch to Owner Step 2
-    public function switchOwnerStep2(Request $request)
+    public function switchOwnerStep2(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_owner_step1')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        if (!Session::has('user')) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
+            }
         }
 
-        $validated = $request->validate([
-            'valid_id_id' => 'required|exists:valid_ids,id',
-            'valid_id_number' => 'required|string|max:100',
-            'valid_id_photo' => 'required|file|mimes:jpg,jpeg,png|max:5120',
-            'police_clearance' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
-
-        $idValidation = $this->validateIdNumberFormat($validated['valid_id_id'], $validated['valid_id_number']);
-        if ($idValidation !== 'success') {
-            return response()->json(['success' => false, 'errors' => ['valid_id_number' => [$idValidation]]], 422);
-        }
+        $validated = $request->validated();
 
         if ($request->hasFile('valid_id_photo')) {
             $file = $request->file('valid_id_photo');
-            $filename = time() . '_valid_id_' . $file->getClientOriginalName();
+            $filename = time() . '_valid_id_front_' . $file->getClientOriginalName();
             $path = $file->storeAs('owner_documents', $filename, 'public');
             $validated['valid_id_photo'] = $path;
+        }
+
+        if ($request->hasFile('valid_id_back_photo')) {
+            $file = $request->file('valid_id_back_photo');
+            $filename = time() . '_valid_id_back_' . $file->getClientOriginalName();
+            $path = $file->storeAs('owner_documents', $filename, 'public');
+            $validated['valid_id_back_photo'] = $path;
         }
 
         if ($request->hasFile('police_clearance')) {
@@ -895,23 +930,40 @@ class authController extends Controller
         }
 
         Session::put('switch_owner_step2', $validated);
-        return response()->json(['success' => true, 'message' => 'Documents uploaded successfully']);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Documents uploaded successfully',
+                'step' => 3,
+                'next_step' => 'final'
+            ]);
+        } else {
+            return response()->json(['success' => true, 'message' => 'Documents uploaded successfully']);
+        }
     }
 
     // Switch to Owner Final
-    public function switchOwnerFinal(Request $request)
+    public function switchOwnerFinal(accountRequest $request)
     {
-        if (!Session::has('user') || !Session::has('switch_owner_step1') || !Session::has('switch_owner_step2')) {
-            return response()->json(['success' => false, 'errors' => ['Session expired or previous steps not completed']], 401);
+        if (!Session::has('user')) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Session expired. Please login again.']], 401);
+            }
         }
 
-        $validated = $request->validate([
-            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-        ]);
-
+        $validated = $request->validated();
         $user = Session::get('user');
-        $step1 = Session::get('switch_owner_step1');
-        $step2 = Session::get('switch_owner_step2');
+
+        $ownerStep1 = Session::get('owner_step1');
+        $switchStep1 = Session::get('switch_owner_step1');
+        $switchStep2 = Session::get('switch_owner_step2');
+
+        if (!$ownerStep1) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => ['Personal information missing. Please start again.']], 400);
+            }
+        }
 
         try {
             DB::beginTransaction();
@@ -923,45 +975,71 @@ class authController extends Controller
                 DB::table('users')->where('user_id', $user->user_id)->update(['profile_pic' => $profilePicPath]);
             }
 
-            $address = $step1['address'];
-
+            // Get existing contractor user data
             $contractorUser = DB::table('contractor_users')->where('user_id', $user->user_id)->first();
 
+            // Create property owner record using personal info from step1 and documents from step2
             DB::table('property_owners')->insert([
                 'user_id' => $user->user_id,
                 'last_name' => $contractorUser->authorized_rep_lname,
                 'middle_name' => $contractorUser->authorized_rep_mname,
                 'first_name' => $contractorUser->authorized_rep_fname,
                 'phone_number' => $contractorUser->phone_number,
-                'address' => $address,
-                'valid_id_id' => $step2['valid_id_id'],
-                'valid_id_number' => $step2['valid_id_number'],
-                'valid_id_photo' => $step2['valid_id_photo'],
-                'police_clearance' => $step2['police_clearance'],
-                'date_of_birth' => $step1['date_of_birth'],
-                'age' => $step1['age'],
-                'occupation_id' => $step1['occupation_id'],
-                'occupation_other' => $step1['occupation_other'] ?? null,
+                'valid_id_id' => $switchStep2['valid_id_id'],
+                'valid_id_back_photo' => $switchStep2['valid_id_back_photo'], // Using back photo instead of number
+                'valid_id_photo' => $switchStep2['valid_id_photo'],
+                'police_clearance' => $switchStep2['police_clearance'],
+                'date_of_birth' => $ownerStep1['date_of_birth'],
+                'age' => $ownerStep1['age'],
+                'occupation_id' => $ownerStep1['occupation_id'],
+                'occupation_other' => $ownerStep1['occupation_other'] ?? null,
+                'address' => $ownerStep1['address'],
                 'verification_status' => 'pending',
                 'verification_date' => null,
                 'created_at' => now(),
             ]);
 
+            // Update user type to 'both'
             DB::table('users')->where('user_id', $user->user_id)->update([
                 'user_type' => 'both',
                 'updated_at' => now(),
             ]);
 
-            Session::forget(['switch_owner_step1', 'switch_owner_step2']);
+            // Update session with new user data
             $updatedUser = DB::table('users')->where('user_id', $user->user_id)->first();
             Session::put('user', $updatedUser);
             Session::put('userType', 'both');
+            Session::put('current_role', 'owner'); // Default to owner since they just added owner role
+
+            // Clear switch session data
+            Session::forget(['switch_owner_step1', 'switch_owner_step2', 'owner_step1']);
 
             DB::commit();
-            return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Role switch successful! You now have both roles.',
+                    'user_type' => 'both',
+                    'current_role' => 'owner',
+                    'redirect_url' => '/dashboard'
+                ], 201);
+            } else {
+                return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
+            }
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'errors' => ['An error occurred: ' . $e->getMessage()]], 500);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'An error occurred during role switch',
+                    'errors' => [$e->getMessage()]
+                ], 500);
+            } else {
+                return response()->json(['success' => false, 'errors' => ['An error occurred: ' . $e->getMessage()]], 500);
+            }
         }
     }
 

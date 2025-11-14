@@ -2,6 +2,40 @@
 var currentUserType = '';
 var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
+// Role Switching Function for Dashboard
+function switchRole(role) {
+	event.target.disabled = true;
+	event.target.textContent = 'Switching...';
+
+	fetch('/api/role/switch', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+		},
+		body: JSON.stringify({
+			role: role
+		})
+	})
+	.then(response => response.json())
+	.then(data => {
+		if (data.success) {
+			window.location.reload();
+		} else {
+			alert('Failed to switch role: ' + data.message);
+			event.target.disabled = false;
+			event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+		}
+	})
+	.catch(error => {
+		console.error('Error:', error);
+		alert('An error occurred while switching roles');
+		event.target.disabled = false;
+		event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+	});
+}
+
 // Utility Functions
 function showError(message) {
 	var errorDiv = document.getElementById('errorMessages');
@@ -77,23 +111,6 @@ function validatePhoneNumber(phoneNumber) {
 	return null;
 }
 
-function getValidIdHint(idType) {
-	switch(parseInt(idType)) {
-		case 9:
-			return 'Must be exactly 12 digits.';
-		case 4:
-			return 'Must be exactly 12 digits.';
-		case 3:
-			return 'Must be exactly 12 digits.';
-		case 2:
-			return 'Must be 12-15 alphanumeric characters.';
-		case 1:
-			return 'Must be 7-9 alphanumeric characters.';
-		default:
-			return 'Must be 8-15 alphanumeric characters.';
-	}
-}
-
 document.addEventListener('DOMContentLoaded', function() {
 	// Condition if el contractor type is others
 	var contractorTypeSelect = document.getElementById('contractor_type_id');
@@ -133,33 +150,6 @@ document.addEventListener('DOMContentLoaded', function() {
 				occupationOtherContainer.style.display = 'none';
 				occupationOtherInput.removeAttribute('required');
 				occupationOtherInput.value = '';
-			}
-		});
-	}
-
-	// Validation hint for id type na owner
-	var validIdSelect = document.getElementById('valid_id_id');
-	var validIdNumberInput = document.getElementById('valid_id_number');
-
-	if (validIdSelect && validIdNumberInput) {
-		// Create hint element if it doesn't exist
-		var hintElement = document.getElementById('valid_id_hint');
-		if (!hintElement) {
-			hintElement = document.createElement('small');
-			hintElement.id = 'valid_id_hint';
-			hintElement.style.display = 'block';
-			hintElement.style.color = '#666';
-			hintElement.style.marginTop = '5px';
-			validIdNumberInput.parentNode.appendChild(hintElement);
-		}
-
-		validIdSelect.addEventListener('change', function() {
-			var idType = this.value;
-			if (idType) {
-				hintElement.textContent = getValidIdHint(idType);
-				hintElement.style.display = 'block';
-			} else {
-				hintElement.style.display = 'none';
 			}
 		});
 	}
@@ -807,6 +797,8 @@ document.addEventListener('DOMContentLoaded', function() {
 				return false;
 			}
 
+			// Ensure form submits in same tab
+			this.target = '_self';
 			return true;
 		});
 	}

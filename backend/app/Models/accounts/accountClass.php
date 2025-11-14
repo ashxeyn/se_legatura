@@ -72,7 +72,7 @@ class accountClass
             'OTP_hash' => $data['OTP_hash'],
             'user_type' => $data['user_type'],
             'is_verified' => 0,
-            'is_active' => 1,
+            'is_active' => 0,
             'created_at' => now(),
             'updated_at' => now()
         ]);
@@ -121,7 +121,7 @@ class accountClass
             'authorized_rep_fname' => $data['first_name'],
             'phone_number' => $data['phone_number'] ?? '',
             'role' => 'owner',
-            'is_active' => 1,
+            'is_active' => 0,
             'created_at' => now()
         ]);
 
@@ -137,9 +137,9 @@ class accountClass
             'first_name' => $data['first_name'],
             'phone_number' => $data['phone_number'],
             'valid_id_id' => $data['valid_id_id'],
-            'valid_id_number' => $data['valid_id_number'],
-            'valid_id_photo' => $data['valid_id_photo'],
-            'police_clearance' => $data['police_clearance'],
+            'valid_id_photo' => $data['valid_id_photo'] ?? null,
+            'valid_id_back_photo' => $data['valid_id_back_photo'] ?? null,
+            'police_clearance' => $data['police_clearance'] ?? null,
             'date_of_birth' => $data['date_of_birth'],
             'age' => $data['age'],
             'occupation_id' => $data['occupation_id'],
@@ -198,7 +198,7 @@ class accountClass
             'last_name' => $data['last_name'],
             'middle_name' => $data['middle_name'] ?? null,
             'first_name' => $data['first_name'],
-            'is_active' => 1,
+            'is_active' => 0,
             'created_at' => now()
         ]);
 

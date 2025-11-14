@@ -20,7 +20,7 @@
 		</div>
 	@endif
 
-	<form method="POST" action="/accounts/login" id="loginForm">
+	<form method="POST" action="/accounts/login" id="loginForm" target="_self">
 		@csrf
 		<div>
 			<label for="username">Username or Email *</label>

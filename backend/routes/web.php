@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\authController;
 use App\Http\Controllers\contractor\cprocessController;
+use App\Http\Controllers\both\disputeController;
 
 Route::get('/', function () {
     return view('startPoint');
@@ -57,5 +58,20 @@ Route::get('/contractor/milestone/setup', [cprocessController::class, 'showMiles
 Route::post('/contractor/milestone/setup/step1', [cprocessController::class, 'milestoneStepOne']);
 Route::post('/contractor/milestone/setup/step2', [cprocessController::class, 'milestoneStepTwo']);
 Route::post('/contractor/milestone/setup/submit', [cprocessController::class, 'submitMilestone']);
+
+// Role Management Routes for 'both' users
+Route::post('/api/role/switch', [cprocessController::class, 'switchRole']);
+Route::get('/api/role/current', [cprocessController::class, 'getCurrentRole']);
+
+// Dispute Routes
+Route::get('/both/disputes', [disputeController::class, 'showDisputePage']);
+Route::post('/both/disputes/file', [disputeController::class, 'fileDispute']);
+Route::get('/both/disputes/list', [disputeController::class, 'getDisputes']);
+Route::get('/both/disputes/{disputeId}', [disputeController::class, 'getDisputeDetails']);
+Route::get('/both/disputes/milestones/{projectId}', [disputeController::class, 'getMilestones']);
+
+// Projects Routes
+Route::get('/both/projects', [disputeController::class, 'showProjectsPage']);
+Route::get('/both/projects/{projectId}', [disputeController::class, 'showProjectDetails']);
 
 

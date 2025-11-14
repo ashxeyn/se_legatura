@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\contractor;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Contractor\cProcessRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
@@ -16,23 +17,185 @@ class cprocessController extends Controller
 	{
 		$this->contractorClass = new contractorClass();
 	}
+<<<<<<< HEAD
 
 	public function showMilestoneSetupForm(Request $request)
 	{
 		if (!Session::has('user')) {
 			return redirect('/accounts/login')->with('error', 'Please login first');
+=======
+	private function checkContractorAccess(Request $request)
+	{
+		if (!Session::has('user')) {
+			if ($request->expectsJson()) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Authentication required',
+					'redirect_url' => '/accounts/login'
+				], 401);
+			} else {
+				return redirect('/accounts/login')->with('error', 'Please login first');
+			}
+		}
+
+		$user = Session::get('user');
+
+		// Check if user has contractor role
+		if (!in_array($user->user_type, ['contractor', 'both'])) {
+			if ($request->expectsJson()) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Access denied. Only contractors can access milestone setup.',
+					'redirect_url' => '/dashboard'
+				], 403);
+			} else {
+				return redirect('/dashboard')->with('error', 'Access denied. Only contractors can access milestone setup.');
+			}
+		}
+
+		// For 'both' users, check current active role
+		if ($user->user_type === 'both') {
+			$currentRole = Session::get('current_role', 'contractor');
+			if ($currentRole !== 'contractor') {
+				if ($request->expectsJson()) {
+					return response()->json([
+						'success' => false,
+						'message' => 'Access denied. Please switch to contractor role to access milestone setup.',
+						'redirect_url' => '/dashboard',
+						'suggested_action' => 'switch_to_contractor'
+					], 403);
+				} else {
+					return redirect('/dashboard')->with('error', 'Please switch to contractor role to access milestone setup.');
+				}
+			}
+		}
+
+		return null;
+	}
+
+	public function switchRole(Request $request)
+	{
+		if (!Session::has('user')) {
+			if ($request->expectsJson()) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Authentication required',
+					'redirect_url' => '/accounts/login'
+				], 401);
+			} else {
+				return redirect('/accounts/login')->with('error', 'Please login first');
+			}
+		}
+
+		$user = Session::get('user');
+
+		if ($user->user_type !== 'both') {
+			if ($request->expectsJson()) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Role switching not available for your account type.'
+				], 403);
+			} else {
+				return redirect('/dashboard')->with('error', 'Role switching not available for your account type.');
+			}
+		}
+
+		$targetRole = $request->input('role');
+
+		if (!in_array($targetRole, ['contractor', 'owner'])) {
+			if ($request->expectsJson()) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Invalid role specified. Must be "contractor" or "owner".'
+				], 400);
+			} else {
+				return redirect('/dashboard')->with('error', 'Invalid role specified.');
+			}
+		}
+
+		Session::put('current_role', $targetRole);
+
+		if ($request->expectsJson()) {
+
+			return response()->json([
+				'success' => true,
+				'message' => "Successfully switched to {$targetRole} role",
+				'current_role' => $targetRole,
+				'redirect_url' => '/dashboard'
+			]);
+		} else {
+
+			return redirect('/dashboard')->with('success', "Successfully switched to {$targetRole} role");
+		}
+	}
+
+	public function getCurrentRole(Request $request)
+	{
+		if (!Session::has('user')) {
+			if ($request->expectsJson()) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Authentication required',
+					'redirect_url' => '/accounts/login'
+				], 401);
+			} else {
+				return redirect('/accounts/login')->with('error', 'Please login first');
+			}
+		}
+
+		$user = Session::get('user');
+		$currentRole = Session::get('current_role', $user->user_type === 'both' ? 'contractor' : $user->user_type);
+
+		if ($request->expectsJson()) {
+			return response()->json([
+				'success' => true,
+				'data' => [
+					'user_type' => $user->user_type,
+					'current_role' => $currentRole,
+					'can_switch_roles' => $user->user_type === 'both'
+				]
+			]);
+		} else {
+			return response()->json([
+				'user_type' => $user->user_type,
+				'current_role' => $currentRole,
+				'can_switch_roles' => $user->user_type === 'both'
+			]);
+		}
+	}
+
+	public function showMilestoneSetupForm(Request $request)
+	{
+
+		$accessCheck = $this->checkContractorAccess($request);
+		if ($accessCheck) {
+			return $accessCheck; // Return error response
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		}
 
 		$user = Session::get('user');
 		$contractor = $this->contractorClass->getContractorByUserId($user->user_id);
 
 		if (!$contractor) {
+<<<<<<< HEAD
 			return redirect('/dashboard')->with('error', 'Contractor profile not found.');
+=======
+			if ($request->expectsJson()) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Contractor profile not found.',
+					'redirect_url' => '/dashboard'
+				], 404);
+			} else {
+				return redirect('/dashboard')->with('error', 'Contractor profile not found.');
+			}
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		}
 
 		$projectId = $request->query('project_id');
 		$projects = $this->contractorClass->getContractorProjects($contractor->contractor_id);
 
+<<<<<<< HEAD
 		return view('contractor.milestoneSetup', [
 			'projectId' => $projectId,
 			'projects' => $projects,
@@ -47,6 +210,34 @@ class cprocessController extends Controller
 				'success' => false,
 				'errors' => ['Please login first']
 			], 401);
+=======
+		if ($request->expectsJson()) {
+			return response()->json([
+				'success' => true,
+				'message' => 'Milestone setup form data',
+				'data' => [
+					'project_id' => $projectId,
+					'projects' => $projects,
+					'contractor' => $contractor,
+					'current_role' => Session::get('current_role', 'contractor')
+				]
+			], 200);
+		} else {
+
+			return view('contractor.milestoneSetup', [
+				'projectId' => $projectId,
+				'projects' => $projects,
+				'contractor' => $contractor
+			]);
+		}
+	}
+
+	public function milestoneStepOne(cProcessRequest $request)
+	{
+		$accessCheck = $this->checkContractorAccess($request);
+		if ($accessCheck) {
+			return $accessCheck; // Return error response
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		}
 
 		$user = Session::get('user');
@@ -59,11 +250,15 @@ class cprocessController extends Controller
 			], 404);
 		}
 
+<<<<<<< HEAD
 		$validated = $request->validate([
 			'project_id' => 'required|integer',
 			'milestone_name' => 'required|string|max:200',
 			'payment_mode' => 'required|in:downpayment,full_payment'
 		]);
+=======
+		$validated = $request->validated();
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 
 		if (!$this->contractorClass->projectBelongsToContractor($validated['project_id'], $contractor->contractor_id)) {
 			return response()->json([
@@ -97,8 +292,19 @@ class cprocessController extends Controller
 		]);
 	}
 
+<<<<<<< HEAD
 	public function milestoneStepTwo(Request $request)
 	{
+=======
+	public function milestoneStepTwo(cProcessRequest $request)
+	{
+		
+		$accessCheck = $this->checkContractorAccess($request);
+		if ($accessCheck) {
+			return $accessCheck; // Return error response
+		}
+
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		$step1 = Session::get('milestone_setup_step1');
 
 		if (!$step1) {
@@ -108,6 +314,7 @@ class cprocessController extends Controller
 			], 400);
 		}
 
+<<<<<<< HEAD
 		$rules = [
 			'start_date' => 'required|date',
 			'end_date' => 'required|date',
@@ -119,10 +326,14 @@ class cprocessController extends Controller
 		}
 
 		$validated = $request->validate($rules);
+=======
+		$validated = $request->validated();
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 
 		$startDate = strtotime($validated['start_date']);
 		$endDate = strtotime($validated['end_date']);
 
+<<<<<<< HEAD
 		if ($startDate === false || $endDate === false || $startDate > $endDate) {
 			return response()->json([
 				'success' => false,
@@ -130,17 +341,22 @@ class cprocessController extends Controller
 			], 422);
 		}
 
+=======
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		$totalCost = (float) $validated['total_project_cost'];
 		$downpayment = 0.00;
 
 		if ($step1['payment_mode'] === 'downpayment') {
 			$downpayment = (float) $validated['downpayment_amount'];
+<<<<<<< HEAD
 			if ($downpayment < 0 || $downpayment >= $totalCost) {
 				return response()->json([
 					'success' => false,
 					'errors' => ['Downpayment must be less than the total project cost']
 				], 422);
 			}
+=======
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		}
 
 		Session::put('milestone_setup_step2', [
@@ -150,6 +366,7 @@ class cprocessController extends Controller
 			'downpayment_amount' => $downpayment
 		]);
 
+<<<<<<< HEAD
 		return response()->json([
 			'success' => true,
 			'step' => 3,
@@ -161,6 +378,39 @@ class cprocessController extends Controller
 
 	public function submitMilestone(Request $request)
 	{
+=======
+		if ($request->expectsJson()) {
+
+			return response()->json([
+				'success' => true,
+				'message' => 'Milestone step 2 completed',
+				'step' => 3,
+				'start_date' => date('Y-m-d', $startDate),
+				'end_date' => date('Y-m-d', $endDate),
+				'payment_mode' => $step1['payment_mode'],
+				'next_step' => 'submit_milestone'
+			]);
+		} else {
+
+			return response()->json([
+				'success' => true,
+				'step' => 3,
+				'start_date' => date('Y-m-d', $startDate),
+				'end_date' => date('Y-m-d', $endDate),
+				'payment_mode' => $step1['payment_mode']
+			]);
+		}
+	}
+
+	public function submitMilestone(cProcessRequest $request)
+	{
+
+		$accessCheck = $this->checkContractorAccess($request);
+		if ($accessCheck) {
+			return $accessCheck; // Return error response
+		}
+
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		$step1 = Session::get('milestone_setup_step1');
 		$step2 = Session::get('milestone_setup_step2');
 
@@ -172,6 +422,7 @@ class cprocessController extends Controller
 		}
 
 		$itemsRaw = $request->input('items');
+<<<<<<< HEAD
 		if (!$itemsRaw) {
 			return response()->json([
 				'success' => false,
@@ -234,6 +485,13 @@ class cprocessController extends Controller
 			], 422);
 		}
 
+=======
+		$items = json_decode($itemsRaw, true);
+
+		$startDate = strtotime($step2['start_date']);
+		$endDate = strtotime($step2['end_date']);
+
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 		try {
 			DB::beginTransaction();
 
@@ -291,10 +549,30 @@ class cprocessController extends Controller
 		Session::forget('milestone_setup_step2');
 		Session::forget('milestone_setup_items');
 
+<<<<<<< HEAD
 		return response()->json([
 			'success' => true,
 			'message' => 'Milestone plan created successfully!',
 			'redirect' => '/dashboard'
 		]);
+=======
+		if ($request->expectsJson()) {
+
+			return response()->json([
+				'success' => true,
+				'message' => 'Milestone plan created successfully!',
+				'milestone_id' => $milestoneId,
+				'plan_id' => $planId,
+				'redirect_url' => '/dashboard'
+			], 201);
+		} else {
+
+			return response()->json([
+				'success' => true,
+				'message' => 'Milestone plan created successfully!',
+				'redirect' => '/dashboard'
+			]);
+		}
+>>>>>>> 59b6faaed4bcd51bf4bcc3911d9517f3e5af5d10
 	}
 }

@@ -496,13 +496,14 @@
 			</div>
 
 			<div>
-				<label for="valid_id_number">Valid ID Number *</label>
-				<input type="text" id="valid_id_number" name="valid_id_number" required maxlength="100">
+				<label for="valid_id_photo">Valid ID Front Photo *</label>
+				<input type="file" id="valid_id_photo" name="valid_id_photo" required accept=".jpg,.jpeg,.png">
+				<small>JPG or PNG (Max 5MB)</small>
 			</div>
 
 			<div>
-				<label for="valid_id_photo">Valid ID Photo *</label>
-				<input type="file" id="valid_id_photo" name="valid_id_photo" required accept=".jpg,.jpeg,.png">
+				<label for="valid_id_back_photo">Valid ID Back Photo *</label>
+				<input type="file" id="valid_id_back_photo" name="valid_id_back_photo" required accept=".jpg,.jpeg,.png">
 				<small>JPG or PNG (Max 5MB)</small>
 			</div>
 
