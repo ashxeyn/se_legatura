@@ -1,14 +1,20 @@
-// Get CSRF token from meta tag
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
 
-// Show error messages
 function showErrors(errors) {
     const errorDiv = document.getElementById('errorMessages');
     const successDiv = document.getElementById('successMessages');
 
-    successDiv.style.display = 'none';
+    if (!errorDiv) {
+        console.error('Error div not found');
+        return;
+    }
+
+    if (successDiv) {
+        successDiv.style.display = 'none';
+    }
+
     errorDiv.innerHTML = '';
 
     if (typeof errors === 'object') {
@@ -32,18 +38,57 @@ function showErrors(errors) {
     window.scrollTo(0, 0);
 }
 
-// Show success messages
 function showSuccess(message) {
     const errorDiv = document.getElementById('errorMessages');
     const successDiv = document.getElementById('successMessages');
 
-    errorDiv.style.display = 'none';
+    if (!successDiv) {
+        console.error('Success div not found');
+        return;
+    }
+
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
+
     successDiv.innerHTML = message;
     successDiv.style.display = 'block';
     window.scrollTo(0, 0);
 }
 
-// Validate dispute description
+function approveProgress(fileId) {
+    console.log('Approve progress clicked for file:', fileId);
+    alert('Progress approved! (This will be implemented with AJAX later)');
+}
+
+function rejectProgress(fileId, itemId, projectId, milestoneId) {
+    console.log('Reject progress clicked:', { fileId, itemId, projectId, milestoneId });
+    const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId + '&milestone_item_id=' + itemId;
+    console.log('Redirecting to:', url);
+    window.location.href = url;
+}
+
+function disputePayment(paymentId, itemId, projectId, milestoneId) {
+    console.log('Dispute payment clicked:', { paymentId, itemId, projectId, milestoneId });
+    const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId + '&milestone_item_id=' + itemId;
+    console.log('Redirecting to:', url);
+    window.location.href = url;
+}
+
+function initializeProjectDetails() {
+    console.log('Project Details page loaded');
+    const disputeButtons = document.querySelectorAll('.btn-danger');
+    console.log('Found', disputeButtons.length, 'dispute buttons');
+}
+
+if (typeof window !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeProjectDetails);
+    } else {
+        initializeProjectDetails();
+    }
+}
+
 function validateDisputeDescription(description) {
     if (!description || description.trim() === '') {
         return 'Dispute description is required.';
@@ -54,7 +99,6 @@ function validateDisputeDescription(description) {
     return 'valid';
 }
 
-// Validate dispute type
 function validateDisputeType(disputeType) {
     const validTypes = ['Payment', 'Delay', 'Quality', 'Others'];
     if (!disputeType || disputeType.trim() === '') {
@@ -66,14 +110,13 @@ function validateDisputeType(disputeType) {
     return 'valid';
 }
 
-// Validate file upload
 function validateEvidenceFile(file) {
     if (!file) {
         return 'valid';
     }
 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    const maxSize = 5 * 1024 * 1024; //
 
     if (!allowedTypes.includes(file.type)) {
         return 'Evidence file must be JPG, JPEG, PNG, or PDF format.';
@@ -86,7 +129,31 @@ function validateEvidenceFile(file) {
     return 'valid';
 }
 
-// Character counter for dispute description
+function resetForm() {
+    const fileDisputeForm = document.getElementById('fileDisputeForm');
+    if (fileDisputeForm) {
+        fileDisputeForm.reset();
+        document.getElementById('charCount').textContent = '0 / 2000 characters';
+
+        const fileContainer = document.getElementById('file-upload-container');
+        const addMoreBtn = document.getElementById('add-more-files');
+        if (fileContainer && addMoreBtn) {
+            fileContainer.innerHTML = `
+                <div class="file-input-group">
+                    <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
+                    <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+                </div>
+            `;
+            addMoreBtn.style.display = 'none';
+        }
+
+        const errorDiv = document.getElementById('errorMessages');
+        const successDiv = document.getElementById('successMessages');
+        if (errorDiv) errorDiv.style.display = 'none';
+        if (successDiv) successDiv.style.display = 'none';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const disputeDescTextarea = document.getElementById('dispute_desc');
     const charCount = document.getElementById('charCount');
@@ -107,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load milestones when project is selected
     const projectSelect = document.getElementById('project_id');
     const milestoneSelect = document.getElementById('milestone_id');
+    const milestoneItemSelect = document.getElementById('milestone_item_id');
     const againstUserIdInput = document.getElementById('against_user_id');
 
     if (projectSelect) {
@@ -123,12 +191,25 @@ document.addEventListener('DOMContentLoaded', function() {
             if (projectId) {
                 loadMilestones(projectId);
             } else {
-                milestoneSelect.innerHTML = '<option value="">Select Milestone (Optional)</option>';
+                if (milestoneSelect) {
+                    milestoneSelect.innerHTML = '<option value="">Select Milestone</option>';
+                }
+                if (milestoneItemSelect) {
+                    milestoneItemSelect.innerHTML = '<option value="">Select Milestone Item</option>';
+                }
             }
         });
     }
 
-    // File dispute form submission
+    if (milestoneSelect) {
+        milestoneSelect.addEventListener('change', function() {
+            const milestoneId = this.value;
+            if (milestoneItemSelect) {
+                loadMilestoneItems(milestoneId);
+            }
+        });
+    }
+
     const fileDisputeForm = document.getElementById('fileDisputeForm');
     if (fileDisputeForm) {
         fileDisputeForm.addEventListener('submit', function(e) {
@@ -137,14 +218,27 @@ document.addEventListener('DOMContentLoaded', function() {
             const projectId = document.getElementById('project_id').value;
             const disputeType = document.getElementById('dispute_type').value;
             const disputeDesc = document.getElementById('dispute_desc').value;
-            const evidenceFile = document.getElementById('evidence_file').files[0];
             const milestoneId = document.getElementById('milestone_id').value;
+            const milestoneItemId = document.getElementById('milestone_item_id').value;
 
-            // Client-side validation
+            const fileInputs = document.querySelectorAll('.evidence-file-input');
+            const evidenceFiles = [];
+            fileInputs.forEach(input => {
+                if (input.files.length > 0) {
+                    for (let i = 0; i < input.files.length; i++) {
+                        evidenceFiles.push(input.files[i]);
+                    }
+                }
+            });
+
             let errors = [];
 
             if (!projectId) {
                 errors.push('Please select a project.');
+            }
+
+            if (!milestoneItemId) {
+                errors.push('Please select a milestone item.');
             }
 
             const typeValidation = validateDisputeType(disputeType);
@@ -157,9 +251,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 errors.push(descValidation);
             }
 
-            const fileValidation = validateEvidenceFile(evidenceFile);
-            if (fileValidation !== 'valid') {
-                errors.push(fileValidation);
+            if (evidenceFiles.length > 10) {
+                errors.push('Maximum 10 files allowed.');
+            }
+
+            for (let file of evidenceFiles) {
+                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                    errors.push(`File "${file.name}" exceeds 5MB limit.`);
+                }
+                const allowedTypes = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+                const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+                if (!allowedTypes.includes(fileExt)) {
+                    errors.push(`File "${file.name}" has invalid format. Allowed: JPG, PNG, PDF, DOC, DOCX.`);
+                }
             }
 
             if (errors.length > 0) {
@@ -167,50 +271,88 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Prepare form data
             const formData = new FormData();
             formData.append('project_id', projectId);
             formData.append('dispute_type', disputeType);
             formData.append('dispute_desc', disputeDesc);
+            formData.append('milestone_item_id', milestoneItemId);
 
             if (milestoneId) {
                 formData.append('milestone_id', milestoneId);
             }
 
-            if (evidenceFile) {
-                formData.append('evidence_file', evidenceFile);
-            }
+            // Append all evidence files
+            evidenceFiles.forEach(file => {
+                formData.append('evidence_files[]', file);
+            });
 
-            // Submit form
             fetch('/both/disputes/file', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': getCsrfToken()
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(response => {
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        // Return data with error flag so we can handle it in next then()
+                        return { isError: true, status: response.status, data: data };
+                    }
+                    return { isError: false, data: data };
+                });
+            })
+            .then(result => {
+                if (result.isError) {
+                    const data = result.data;
+
+                    if (result.status === 422 && data.errors) {
+                        showErrors(data.errors);
+                    } else if (data.message) {
+                        showErrors(data.message);
+                    } else {
+                        showErrors('An error occurred while submitting the dispute.');
+                    }
+                    return;
+                }
+
+                const data = result.data;
+
                 if (data.success) {
                     showSuccess(data.message);
-                    fileDisputeForm.reset();
-                    document.getElementById('charCount').textContent = '0 / 2000 characters';
 
-                    // Reload page to show new dispute in list
+                    // Reset form if it still exists
+                    if (fileDisputeForm) {
+                        fileDisputeForm.reset();
+                    }
+
+                    const charCount = document.getElementById('charCount');
+                    if (charCount) {
+                        charCount.textContent = '0 / 2000 characters';
+                    }
+
+                    const fileContainer = document.getElementById('file-upload-container');
+                    const addMoreBtn = document.getElementById('add-more-files');
+                    if (fileContainer && addMoreBtn) {
+                        fileContainer.innerHTML = `
+                            <div class="file-input-group">
+                                <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
+                                <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+                            </div>
+                        `;
+                        addMoreBtn.style.display = 'none';
+                    }
+
                     setTimeout(() => {
                         location.reload();
-                    }, 2000);
-                } else {
-                    if (data.errors) {
-                        showErrors(data.errors);
-                    } else {
-                        showErrors(data.message);
-                    }
+                    }, 1500);
                 }
             })
             .catch(error => {
-                showErrors('An error occurred while submitting the dispute. Please try again.');
-                console.error('Error:', error);
+                console.error('Submission error:', error);
+                showErrors(error.message || 'An error occurred while submitting the dispute. Please try again.');
             });
         });
     }
@@ -219,6 +361,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // Load milestones for selected project
 function loadMilestones(projectId) {
     const milestoneSelect = document.getElementById('milestone_id');
+    const milestoneItemSelect = document.getElementById('milestone_item_id');
+
+    if (!milestoneSelect) {
+        console.warn('Milestone select element not found');
+        return;
+    }
 
     fetch(`/both/disputes/milestones/${projectId}`, {
         method: 'GET',
@@ -229,27 +377,130 @@ function loadMilestones(projectId) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            milestoneSelect.innerHTML = '<option value="">Select Milestone (Optional)</option>';
+        console.log('Milestones response:', data);
 
-            data.milestones.forEach(milestone => {
-                const option = document.createElement('option');
-                option.value = milestone.milestone_id;
-                option.textContent = milestone.milestone_name;
-                milestoneSelect.appendChild(option);
-            });
+        let milestones = [];
+        if (data.success && data.data && data.data.milestones) {
+            milestones = data.data.milestones;
+        } else if (data.milestones) {
+            milestones = data.milestones;
+        } else {
+            console.log('No milestones found in response');
+            milestoneSelect.innerHTML = '<option value="">No milestones available</option>';
+            return;
+        }
+
+        milestoneSelect.innerHTML = '<option value="">Select Milestone</option>';
+
+        milestones.forEach(milestone => {
+            const option = document.createElement('option');
+            option.value = milestone.milestone_id;
+            option.textContent = milestone.milestone_name || 'Unnamed Milestone';
+            milestoneSelect.appendChild(option);
+            console.log('Added milestone:', milestone.milestone_name, 'with ID:', milestone.milestone_id);
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const milestoneIdParam = urlParams.get('milestone_id');
+        if (milestoneIdParam && milestones.find(m => m.milestone_id == milestoneIdParam)) {
+            milestoneSelect.value = milestoneIdParam;
+            const event = new Event('change');
+            milestoneSelect.dispatchEvent(event);
         }
     })
     .catch(error => {
         console.error('Error loading milestones:', error);
     });
+
+    // Clear milestone items when project changes
+    if (milestoneItemSelect) {
+        milestoneItemSelect.innerHTML = '<option value="">Select Milestone Item</option>';
+    }
 }
 
-// Reset form
+function loadMilestoneItems(milestoneId) {
+    const milestoneItemSelect = document.getElementById('milestone_item_id');
+
+    if (!milestoneItemSelect) {
+        console.warn('Milestone item select element not found');
+        return;
+    }
+
+    if (!milestoneId) {
+        milestoneItemSelect.innerHTML = '<option value="">Select Milestone Item</option>';
+        return;
+    }
+
+    fetch(`/both/disputes/milestone-items/${milestoneId}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': getCsrfToken(),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Milestone items response:', data);
+
+        let milestoneItems = [];
+        if (data.success && data.data && data.data.milestone_items) {
+            milestoneItems = data.data.milestone_items;
+        } else if (data.milestone_items) {
+            milestoneItems = data.milestone_items;
+        } else {
+            console.log('No milestone items found in response');
+            milestoneItemSelect.innerHTML = '<option value="">No milestone items available</option>';
+            return;
+        }
+
+        milestoneItemSelect.innerHTML = '<option value="">Select Milestone Item</option>';
+
+        milestoneItems.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.milestone_item_id;
+            option.textContent = item.milestone_item_title || 'Unnamed Item';
+            milestoneItemSelect.appendChild(option);
+            console.log('Added milestone item:', item.milestone_item_title, 'with ID:', item.milestone_item_id);
+        });
+
+        // Check if there's a milestone item to pre-select
+        const urlParams = new URLSearchParams(window.location.search);
+        const milestoneItemIdParam = urlParams.get('milestone_item_id');
+        if (milestoneItemIdParam && milestoneItems.find(mi => mi.milestone_item_id == milestoneItemIdParam)) {
+            milestoneItemSelect.value = milestoneItemIdParam;
+            console.log('Pre-selected milestone item:', milestoneItemIdParam);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading milestone items:', error);
+        milestoneItemSelect.innerHTML = '<option value="">Error loading milestone items</option>';
+    });
+}
+
 function resetForm() {
-    document.getElementById('fileDisputeForm').reset();
-    document.getElementById('charCount').textContent = '0 / 2000 characters';
-    document.getElementById('milestone_id').innerHTML = '<option value="">Select Milestone (Optional)</option>';
-    document.getElementById('errorMessages').style.display = 'none';
-    document.getElementById('successMessages').style.display = 'none';
+    const form = document.getElementById('fileDisputeForm');
+    const charCount = document.getElementById('charCount');
+    const milestoneSelect = document.getElementById('milestone_id');
+    const milestoneItemSelect = document.getElementById('milestone_item_id');
+    const errorDiv = document.getElementById('errorMessages');
+    const successDiv = document.getElementById('successMessages');
+
+    if (form) form.reset();
+    if (charCount) charCount.textContent = '0 / 2000 characters';
+    if (milestoneSelect) milestoneSelect.innerHTML = '<option value="">Select Milestone</option>';
+    if (milestoneItemSelect) milestoneItemSelect.innerHTML = '<option value="">Select Milestone Item</option>';
+    if (errorDiv) errorDiv.style.display = 'none';
+    if (successDiv) successDiv.style.display = 'none';
+
+    const fileContainer = document.getElementById('file-upload-container');
+    const addMoreBtn = document.getElementById('add-more-files');
+    if (fileContainer && addMoreBtn) {
+        fileContainer.innerHTML = `
+            <div class="file-input-group">
+                <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
+                <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+            </div>
+        `;
+        addMoreBtn.style.display = 'none';
+    }
 }

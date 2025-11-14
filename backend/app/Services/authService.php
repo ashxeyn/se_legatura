@@ -58,17 +58,17 @@ class authService
             ->first();
 
         if ($user && $this->verifyPassword($password, $user->password_hash)) {
-            if (!$user->is_active) {
-                return [
-                    'success' => false,
-                    'message' => 'Account is inactive'
-                ];
-            }
-
             if (!$user->is_verified) {
                 return [
                     'success' => false,
                     'message' => 'Your account is waiting for verification. Please wait for admin approval.'
+                ];
+            }
+
+            if (!$user->is_active) {
+                return [
+                    'success' => false,
+                    'message' => 'Account is inactive. Please contact support.'
                 ];
             }
 

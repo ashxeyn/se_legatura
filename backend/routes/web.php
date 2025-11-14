@@ -69,6 +69,8 @@ Route::post('/both/disputes/file', [disputeController::class, 'fileDispute']);
 Route::get('/both/disputes/list', [disputeController::class, 'getDisputes']);
 Route::get('/both/disputes/{disputeId}', [disputeController::class, 'getDisputeDetails']);
 Route::get('/both/disputes/milestones/{projectId}', [disputeController::class, 'getMilestones']);
+Route::get('/both/disputes/milestone-items/{milestoneId}', [disputeController::class, 'getMilestoneItems']);
+Route::post('/both/disputes/check-existing', [disputeController::class, 'checkExistingDispute']);
 
 // Projects Routes
 Route::get('/both/projects', [disputeController::class, 'showProjectsPage']);

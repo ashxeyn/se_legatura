@@ -5,6 +5,265 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $project->project_title }} - Project Details</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .nav-links {
+            background: #007bff;
+            color: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #0056b3;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            margin-right: 15px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .nav-links a:hover {
+            opacity: 0.8;
+            text-decoration: underline;
+        }
+
+        .project-header {
+            padding: 30px 20px;
+            border-bottom: 2px solid #e9ecef;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .project-header h1 {
+            font-size: 2.2em;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .project-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.6em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-in_progress { background: #d1ecf1; color: #0c5460; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-cancelled { background: #f8d7da; color: #721c24; }
+
+        .project-header p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+
+        .project-header strong {
+            color: #495057;
+            font-weight: 600;
+        }
+
+        h2 {
+            padding: 25px 20px 15px;
+            font-size: 1.8em;
+            color: #2c3e50;
+            border-bottom: 3px solid #007bff;
+            margin-bottom: 20px;
+            background: white;
+        }
+
+        .milestone-container {
+            margin: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+
+        .milestone-header {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            padding: 20px;
+            border-bottom: 1px solid #90caf9;
+        }
+
+        .milestone-header h3 {
+            color: #1565c0;
+            font-size: 1.4em;
+            margin-bottom: 8px;
+        }
+
+        .milestone-header p {
+            color: #424242;
+            margin-bottom: 8px;
+        }
+
+        .milestone-header small {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .milestone-item {
+            padding: 20px;
+            border-bottom: 1px solid #f1f3f4;
+            transition: background-color 0.2s;
+        }
+
+        .milestone-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .milestone-item:last-child {
+            border-bottom: none;
+        }
+
+        .milestone-item h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .milestone-item p {
+            margin-bottom: 8px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+        }
+
+        .progress-files, .evidence-files {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .progress-files h5, .evidence-files h5 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        .file-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .file-list a {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .file-list a:hover {
+            background: #bbdefb;
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 20px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .project-header h1 {
+                font-size: 1.8em;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .milestone-container {
+                margin: 10px;
+            }
+
+            .btn {
+                display: block;
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -75,7 +334,7 @@
                                 @else
                                     <!-- Contractor View: See Payment Validations Uploaded by Owner -->
                                     <h5>Payment Validations:</h5>
-                                    @if(count($item['payments']) > 0)
+                                    @if(isset($item['payments']) && count($item['payments']) > 0)
                                         @foreach($item['payments'] as $payment)
                                             <div class="file-item {{ $payment->is_approved ? 'payment-approved' : '' }}">
                                                 <strong>Payment: ₱{{ number_format($payment->amount, 2) }}</strong>
@@ -97,7 +356,10 @@
                                             </div>
                                         @endforeach
                                     @else
-                                        <div class="empty-state">No payment validations uploaded yet.</div>
+                                        <div class="empty-state">
+                                            <p>No payment validations uploaded yet.</p>
+                                            <button class="btn btn-danger" onclick="disputePayment(0, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">File Payment Dispute</button>
+                                        </div>
                                     @endif
                                 @endif
                             </div>
@@ -115,33 +377,6 @@
         @endif
     </div>
 
-    <script>
-        function approveProgress(fileId) {
-            console.log('Approve progress clicked for file:', fileId);
-            alert('Progress approved! (This will be implemented with AJAX later)');
-            // TODO: Implement AJAX call to approve progress
-        }
-
-        function rejectProgress(fileId, itemId, projectId, milestoneId) {
-            console.log('Reject progress clicked:', { fileId, itemId, projectId, milestoneId });
-            const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId;
-            console.log('Redirecting to:', url);
-            window.location.href = url;
-        }
-
-        function disputePayment(paymentId, itemId, projectId, milestoneId) {
-            console.log('Dispute payment clicked:', { paymentId, itemId, projectId, milestoneId });
-            const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId;
-            console.log('Redirecting to:', url);
-            window.location.href = url;
-        }
-
-        // Add click event listeners to make buttons more obvious (debugging)
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Project Details page loaded');
-            const disputeButtons = document.querySelectorAll('.btn-danger');
-            console.log('Found', disputeButtons.length, 'dispute buttons');
-        });
-    </script>
+    <script src="{{ asset('js/both.js') }}"></script>
 </body>
 </html>

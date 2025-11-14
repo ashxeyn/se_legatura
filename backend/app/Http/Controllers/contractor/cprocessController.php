@@ -195,7 +195,6 @@ class cprocessController extends Controller
 				]
 			], 200);
 		} else {
-
 			return view('contractor.milestoneSetup', [
 				'projectId' => $projectId,
 				'projects' => $projects,
@@ -208,7 +207,7 @@ class cprocessController extends Controller
 	{
 		$accessCheck = $this->checkContractorAccess($request);
 		if ($accessCheck) {
-			return $accessCheck; // Return error response
+			return $accessCheck;
 		}
 
 		$user = Session::get('user');
@@ -257,10 +256,10 @@ class cprocessController extends Controller
 
 	public function milestoneStepTwo(cProcessRequest $request)
 	{
-		
+
 		$accessCheck = $this->checkContractorAccess($request);
 		if ($accessCheck) {
-			return $accessCheck; // Return error response
+			return $accessCheck;
 		}
 
 		$step1 = Session::get('milestone_setup_step1');
@@ -319,7 +318,7 @@ class cprocessController extends Controller
 
 		$accessCheck = $this->checkContractorAccess($request);
 		if ($accessCheck) {
-			return $accessCheck; // Return error response
+			return $accessCheck;
 		}
 
 		$step1 = Session::get('milestone_setup_step1');

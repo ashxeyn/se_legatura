@@ -22,14 +22,19 @@ class contractorClass
 
 	public function projectBelongsToContractor($projectId, $contractorId)
 	{
-		return DB::table('projects as p')
-			->join('bids as b', function ($join) use ($contractorId) {
-				$join->on('b.project_id', '=', 'p.project_id')
-					->where('b.contractor_id', '=', $contractorId)
-					->where('b.bid_status', '=', 'accepted');
-			})
-			->where('p.project_id', $projectId)
-			->where('p.selected_contractor_id', $contractorId)
+		$project = DB::table('projects')
+			->where('project_id', $projectId)
+			->where('selected_contractor_id', $contractorId)
+			->first();
+
+		if ($project) {
+			return true;
+		}
+
+		return DB::table('bids')
+			->where('project_id', $projectId)
+			->where('contractor_id', $contractorId)
+			->where('bid_status', 'accepted')
 			->exists();
 	}
 
@@ -42,19 +47,14 @@ class contractorClass
 				'p.project_description',
 				'p.project_status'
 			)
-			->join('bids as b', function ($join) use ($contractorId) {
-				$join->on('b.project_id', '=', 'p.project_id')
-					->where('b.contractor_id', '=', $contractorId)
-					->where('b.bid_status', '=', 'accepted');
-			})
-			->leftJoin('milestones as m', function ($join) use ($contractorId) {
-				$join->on('m.project_id', '=', 'p.project_id')
-					->where('m.contractor_id', '=', $contractorId);
-			})
 			->where('p.selected_contractor_id', $contractorId)
-			->whereNull('m.milestone_id')
+			->whereNotExists(function ($query) use ($contractorId) {
+				$query->select(DB::raw(1))
+					->from('milestones')
+					->whereColumn('milestones.project_id', 'p.project_id')
+					->where('milestones.contractor_id', $contractorId);
+			})
 			->orderBy('p.project_title')
-			->distinct()
 			->get();
 	}
 
@@ -65,6 +65,8 @@ class contractorClass
 			->where('contractor_id', $contractorId)
 			->exists();
 	}
+
+
 
 	public function createPaymentPlan($data)
 	{

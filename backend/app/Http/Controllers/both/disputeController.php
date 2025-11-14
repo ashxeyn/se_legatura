@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Both\disputeRequest;
 use App\Models\Both\disputeClass;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
+use Exception;
 
 class disputeController extends Controller
 {
@@ -18,46 +20,84 @@ class disputeController extends Controller
         $this->disputeClass = new disputeClass();
     }
 
-    public function showDisputePage()
+    private function checkAuthentication(Request $request)
     {
         $user = Session::get('user');
         if (!$user) {
-            return redirect('/accounts/login');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required',
+                    'redirect_url' => '/accounts/login'
+                ], 401);
+            } else {
+                return redirect('/accounts/login');
+            }
         }
+        return null;
+    }
+
+    public function showDisputePage(Request $request)
+    {
+        $authCheck = $this->checkAuthentication($request);
+        if ($authCheck) {
+            return $authCheck;
+        }
+
+        $user = Session::get('user');
         $userId = $user->user_id;
 
         $projects = $this->disputeClass->getUserProjects($userId);
-        $disputes = $this->disputeClass->getDisputesByUser($userId);
+        $disputes = $this->disputeClass->getDisputesWithFiles($userId);
 
-        return view('both.disputes', compact('projects', 'disputes'));
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Dispute page data',
+                'data' => [
+                    'projects' => $projects,
+                    'disputes' => $disputes,
+                    'user_id' => $userId
+                ]
+            ], 200);
+        } else {
+            return view('both.disputes', compact('projects', 'disputes'));
+        }
     }
 
     public function fileDispute(disputeRequest $request)
     {
         try {
-            $user = Session::get('user');
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
+            $authCheck = $this->checkAuthentication($request);
+            if ($authCheck) {
+                return $authCheck;
             }
+
+            $user = Session::get('user');
             $userId = $user->user_id;
 
             $validated = $request->validated();
 
-            // Get project info to determine against_user_id
-            $project = $this->disputeClass->getProjectById($validated['project_id']);
-
-            if (!$project) {
+            // Validate project and its users
+            $validation = $this->disputeClass->validateProjectUsers($validated['project_id']);
+            if (!$validation['valid']) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Project not found'
-                ], 404);
+                    'message' => $validation['message']
+                ], 400);
             }
 
-            // Determine who the dispute is against
-            // If current user is contractor, dispute is against owner and vice versa
+            $project = $validation['project'];
+
+            // Check if project has a contractor assigned
+            if (!$project->contractor_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot file dispute: Project does not have a contractor assigned yet'
+                ], 400);
+            }
+
+            // If ung current user is contractor, ung dispute is against owner and vice versa
             $againstUserId = null;
             if ($project->contractor_id == $userId) {
                 $againstUserId = $project->owner_id;
@@ -66,35 +106,105 @@ class disputeController extends Controller
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not authorized to file a dispute for this project'
+                    'message' => 'You are not authorized to file a dispute for this project. You must be either the project owner or assigned contractor.'
                 ], 403);
             }
 
-            $evidenceFilePath = null;
-            if ($request->hasFile('evidence_file')) {
-                $file = $request->file('evidence_file');
-                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $evidenceFilePath = $file->storeAs('disputes/evidence', $fileName, 'public');
+            // Validate that the against_user_id exists in the users table
+            if ($againstUserId) {
+                $againstUserExists = DB::table('users')->where('user_id', $againstUserId)->exists();
+                if (!$againstUserExists) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot file dispute: Target user not found'
+                    ], 400);
+                }
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot determine dispute target user'
+                ], 400);
             }
 
             $disputeData = [
                 'project_id' => $validated['project_id'],
                 'raised_by_user_id' => $userId,
                 'against_user_id' => $againstUserId,
-                'milestone_id' => $validated['milestone_id'] ?? null,
+                'milestone_id' => $validated['milestone_id'],
+                'milestone_item_id' => $validated['milestone_item_id'],
                 'dispute_type' => $validated['dispute_type'],
-                'dispute_desc' => $validated['dispute_desc'],
-                'evidence_file' => $evidenceFilePath
+                'dispute_desc' => $validated['dispute_desc']
             ];
 
             $disputeId = $this->disputeClass->createDispute($disputeData);
 
+            // Handle multiple evidence files
+            $uploadedFiles = [];
+            if ($request->hasFile('evidence_files')) {
+                $files = $request->file('evidence_files');
+                if (!is_array($files)) {
+                    $files = [$files]; // Handle single file case
+                }
+
+                foreach ($files as $file) {
+                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $storagePath = $file->storeAs('disputes/evidence', $fileName, 'public');
+
+                    $fileId = $this->disputeClass->createDisputeFile(
+                        $disputeId,
+                        $storagePath,
+                        $file->getClientOriginalName(),
+                        $file->getMimeType(),
+                        $file->getSize()
+                    );
+
+                    $uploadedFiles[] = [
+                        'file_id' => $fileId,
+                        'original_name' => $file->getClientOriginalName(),
+                        'size' => $file->getSize()
+                    ];
+                }
+            }
+
+            // Keep backward compatibility with single file
+            if ($request->hasFile('evidence_file')) {
+                $file = $request->file('evidence_file');
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $storagePath = $file->storeAs('disputes/evidence', $fileName, 'public');
+
+                $fileId = $this->disputeClass->createDisputeFile(
+                    $disputeId,
+                    $storagePath,
+                    $file->getClientOriginalName(),
+                    $file->getMimeType(),
+                    $file->getSize()
+                );
+
+                $uploadedFiles[] = [
+                    'file_id' => $fileId,
+                    'original_name' => $file->getClientOriginalName(),
+                    'size' => $file->getSize()
+                ];
+            }
+
             if ($disputeId) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Dispute filed successfully',
-                    'dispute_id' => $disputeId
-                ], 201);
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Dispute filed successfully',
+                        'data' => [
+                            'dispute_id' => $disputeId,
+                            'uploaded_files' => $uploadedFiles,
+                            'files_count' => count($uploadedFiles)
+                        ]
+                    ], 201);
+                } else {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Dispute filed successfully',
+                        'dispute_id' => $disputeId
+                    ], 201);
+                }
             } else {
                 return response()->json([
                     'success' => false,
@@ -102,9 +212,16 @@ class disputeController extends Controller
                 ], 500);
             }
         } catch (\Exception $e) {
+            \Log::error('Dispute submission error: ' . $e->getMessage(), [
+                'user_id' => $user->user_id ?? null,
+                'request_data' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error filing dispute: ' . $e->getMessage()
+                'message' => 'Error filing dispute',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -112,42 +229,60 @@ class disputeController extends Controller
     public function getDisputes(Request $request)
     {
         try {
-            $user = Session::get('user');
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
+            $authCheck = $this->checkAuthentication($request);
+            if ($authCheck) {
+                return $authCheck;
             }
+
+            $user = Session::get('user');
             $userId = $user->user_id;
 
-            $disputes = $this->disputeClass->getDisputesByUser($userId);
+            $disputes = $this->disputeClass->getDisputesWithFiles($userId);
 
-            return response()->json([
-                'success' => true,
-                'disputes' => $disputes
-            ], 200);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Disputes retrieved successfully',
+                    'data' => [
+                        'disputes' => $disputes,
+                        'total_count' => count($disputes)
+                    ]
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'disputes' => $disputes
+                ], 200);
+            }
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error retrieving disputes: ' . $e->getMessage()
-            ], 500);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error retrieving disputes',
+                    'error' => $e->getMessage()
+                ], 500);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error retrieving disputes: ' . $e->getMessage()
+                ], 500);
+            }
         }
     }
 
     public function getDisputeDetails(Request $request, $disputeId)
     {
         try {
-            $user = Session::get('user');
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
+            $authCheck = $this->checkAuthentication($request);
+            if ($authCheck) {
+                return $authCheck;
             }
+
+            $user = Session::get('user');
             $userId = $user->user_id;
 
             $dispute = $this->disputeClass->getDisputeById($disputeId);
+            $disputeFiles = $this->disputeClass->getDisputeFiles($disputeId);
 
             if (!$dispute) {
                 return response()->json([
@@ -156,14 +291,26 @@ class disputeController extends Controller
                 ], 404);
             }
 
-            return response()->json([
-                'success' => true,
-                'dispute' => $dispute
-            ], 200);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Dispute details retrieved successfully',
+                    'data' => [
+                        'dispute' => $dispute,
+                        'evidence_files' => $disputeFiles
+                    ]
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'dispute' => $dispute
+                ], 200);
+            }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving dispute details: ' . $e->getMessage()
+                'message' => 'Error retrieving dispute details',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -171,47 +318,99 @@ class disputeController extends Controller
     public function getMilestones(Request $request, $projectId)
     {
         try {
-            $user = Session::get('user');
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
+            $authCheck = $this->checkAuthentication($request);
+            if ($authCheck) {
+                return $authCheck;
             }
+
+            $user = Session::get('user');
             $userId = $user->user_id;
 
             $milestones = $this->disputeClass->getMilestonesByProject($projectId);
 
             return response()->json([
                 'success' => true,
-                'milestones' => $milestones
+                'message' => 'Milestones retrieved successfully',
+                'data' => [
+                    'project_id' => $projectId,
+                    'milestones' => $milestones
+                ]
             ], 200);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving milestones: ' . $e->getMessage()
+                'message' => 'Error retrieving milestones',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
 
-    public function showProjectsPage()
+    public function getMilestoneItems(Request $request, $milestoneId)
+    {
+        try {
+            // Get milestone items
+            $milestoneItems = $this->disputeClass->getMilestoneItemsByMilestone($milestoneId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Milestone items retrieved successfully',
+                'data' => [
+                    'milestone_items' => $milestoneItems
+                ]
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving milestone items: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function showProjectsPage(Request $request)
     {
         $user = Session::get('user');
         if (!$user) {
-            return redirect('/accounts/login');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required',
+                    'redirect_url' => '/accounts/login'
+                ], 401);
+            } else {
+                return redirect('/accounts/login');
+            }
         }
         $userId = $user->user_id;
 
         $projects = $this->disputeClass->getUserProjects($userId);
 
-        return view('both.projects', compact('projects', 'userId'));
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Projects retrieved successfully',
+                'data' => [
+                    'projects' => $projects,
+                    'user_id' => $userId
+                ]
+            ], 200);
+        } else {
+            return view('both.projects', compact('projects', 'userId'));
+        }
     }
 
     public function showProjectDetails(Request $request, $projectId)
     {
         $user = Session::get('user');
         if (!$user) {
-            return redirect('/accounts/login');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required',
+                    'redirect_url' => '/accounts/login'
+                ], 401);
+            } else {
+                return redirect('/accounts/login');
+            }
         }
         $userId = $user->user_id;
 
@@ -219,12 +418,26 @@ class disputeController extends Controller
         $project = $this->disputeClass->getProjectDetailsById($projectId);
 
         if (!$project) {
-            return redirect('/both/projects')->with('error', 'Project not found');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project not found'
+                ], 404);
+            } else {
+                return redirect('/both/projects')->with('error', 'Project not found');
+            }
         }
 
         // Check if user has access to this project
         if ($project->owner_id != $userId && $project->contractor_user_id != $userId) {
-            return redirect('/both/projects')->with('error', 'You do not have access to this project');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this project'
+                ], 403);
+            } else {
+                return redirect('/both/projects')->with('error', 'You do not have access to this project');
+            }
         }
 
         // Get milestones and items
@@ -264,6 +477,67 @@ class disputeController extends Controller
         $isOwner = $project->owner_id == $userId;
         $isContractor = $project->contractor_user_id == $userId;
 
-        return view('both.projectDetails', compact('project', 'milestones', 'isOwner', 'isContractor'));
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Project details retrieved successfully',
+                'data' => [
+                    'project' => $project,
+                    'milestones' => array_values($milestones),
+                    'user_role' => [
+                        'is_owner' => $isOwner,
+                        'is_contractor' => $isContractor
+                    ]
+                ]
+            ], 200);
+        } else {
+            return view('both.projectDetails', compact('project', 'milestones', 'isOwner', 'isContractor'));
+        }
+    }
+
+    public function checkExistingDispute(Request $request)
+    {
+        try {
+            $user = Session::get('user');
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required'
+                ], 401);
+            }
+
+            $projectId = $request->input('project_id');
+            $milestoneId = $request->input('milestone_id');
+            $userId = $user->user_id;
+
+            $hasOpenDispute = false;
+            $message = '';
+
+            if ($milestoneId) {
+                // Check for milestone item dispute
+                $hasOpenDispute = $this->disputeClass->hasOpenDisputeForMilestone($userId, $milestoneId);
+                if ($hasOpenDispute) {
+                    $message = 'You already have an open dispute for this milestone. Please wait for it to be resolved or closed.';
+                }
+            } else {
+                // Check for project (like whole full milestone to guys) dispute
+                $hasOpenDispute = $this->disputeClass->hasOpenDisputeForProject($userId, $projectId);
+                if ($hasOpenDispute) {
+                    $message = 'You already have an open dispute for this project. Please wait for it to be resolved or closed.';
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'has_open_dispute' => $hasOpenDispute,
+                'message' => $message
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error checking existing disputes'
+            ], 500);
+        }
     }
 }

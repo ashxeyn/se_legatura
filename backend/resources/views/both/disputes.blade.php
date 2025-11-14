@@ -5,6 +5,105 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Disputes</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        .file-input-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .evidence-file-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+
+        .evidence-file-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+        }
+
+        .remove-file-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .remove-file-btn:hover {
+            background-color: #c82333;
+        }
+
+        #add-more-files {
+            background-color: #007bff;
+            color: white;
+            border: 1px solid #007bff;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        #add-more-files:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+            transform: translateY(-1px);
+        }        .evidence-files {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+
+        .evidence-files li {
+            margin-bottom: 5px;
+        }
+
+        .evidence-files a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .evidence-files a:hover {
+            text-decoration: underline;
+        }
+
+        .error-messages, .success-messages {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .error-messages {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        .success-messages {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .error-messages ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .error-messages li {
+            margin-bottom: 5px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -14,7 +113,9 @@
         <div id="errorMessages" class="error-messages"></div>
         <div id="successMessages" class="success-messages"></div>
 
-        <h2>File New Dispute</h2>
+        <h2>File New Diaspute</h2>
+        <a href="/both/projects">Back</a>
+
         <form id="fileDisputeForm">
             <div class="form-group">
                 <label for="project_id">Project *</label>
@@ -31,9 +132,16 @@
             </div>
 
             <div class="form-group">
-                <label for="milestone_id">Milestone (Optional)</label>
-                <select id="milestone_id" name="milestone_id">
-                    <option value="">Select Milestone (Optional)</option>
+                <label for="milestone_id">Milestone *</label>
+                <select id="milestone_id" name="milestone_id" required>
+                    <option value="">Select Milestone</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="milestone_item_id">Milestone Item *</label>
+                <select id="milestone_item_id" name="milestone_item_id" required>
+                    <option value="">Select Milestone Item</option>
                 </select>
             </div>
 
@@ -55,9 +163,16 @@
             </div>
 
             <div class="form-group">
-                <label for="evidence_file">Evidence File (Optional)</label>
-                <input type="file" id="evidence_file" name="evidence_file" accept=".jpg,.jpeg,.png,.pdf">
-                <small>Accepted formats: JPG, JPEG, PNG, PDF (Max 5MB)</small>
+                <label for="evidence_files">Evidence Files (Optional)</label>
+                <div id="file-upload-container">
+                    <div class="file-input-group">
+                        <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
+                        <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+                    </div>
+                </div>
+                <button type="button" id="add-more-files" onclick="addMoreFiles()" style="display:none;">📎 Add More Files</button>
+                <small>Accepted formats: JPG, JPEG, PNG, PDF, DOC, DOCX (Max 5MB each, up to 10 files)<br>
+                <em>Click "Add More Files" to select additional evidence files one by one.</em></small>
             </div>
 
             <button type="submit">Submit Dispute</button>
@@ -80,11 +195,24 @@
                             @if($dispute->milestone_name)
                                 <p><strong>Milestone:</strong> {{ $dispute->milestone_name }}</p>
                             @endif
+                            @if($dispute->milestone_item_title)
+                                <p><strong>Milestone Item:</strong> {{ $dispute->milestone_item_title }}</p>
+                            @endif
                             <p><strong>Filed by:</strong> {{ $dispute->raised_by_username }}</p>
                             <p><strong>Against:</strong> {{ $dispute->against_username }}</p>
                             <p><strong>Description:</strong> {{ $dispute->dispute_desc }}</p>
-                            @if($dispute->evidence_file)
-                                <p><strong>Evidence:</strong> <a href="{{ asset('storage/' . $dispute->evidence_file) }}" target="_blank">View File</a></p>
+                            @if(isset($dispute->files) && count($dispute->files) > 0)
+                                <p><strong>Evidence Files:</strong></p>
+                                <ul class="evidence-files">
+                                    @foreach($dispute->files as $file)
+                                        <li>
+                                            <a href="{{ asset('storage/' . $file->storage_path) }}" target="_blank">
+                                                {{ $file->original_name }}
+                                            </a>
+                                            <small>({{ number_format($file->size / 1024, 1) }} KB)</small>
+                                        </li>
+                                    @endforeach
+                                </ul>
                             @endif
                             <p><small>Filed on: {{ date('M d, Y h:i A', strtotime($dispute->dispute_created_at)) }}</small></p>
                             @if($dispute->admin_response)
@@ -100,34 +228,6 @@
     </div>
 
     <script src="{{ asset('js/both.js') }}"></script>
-    <script>
-        // Pre-fill form from URL parameters (when coming from project details page)
-        window.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const projectId = urlParams.get('project_id');
-            const milestoneId = urlParams.get('milestone_id');
-
-            if (projectId) {
-                const projectSelect = document.getElementById('project_id');
-                projectSelect.value = projectId;
-
-                // Trigger change event to load milestones
-                const event = new Event('change');
-                projectSelect.dispatchEvent(event);
-
-                // If milestone_id is provided, select it after milestones are loaded
-                if (milestoneId) {
-                    // Wait a bit for milestones to load via AJAX
-                    setTimeout(function() {
-                        const milestoneSelect = document.getElementById('milestone_id');
-                        milestoneSelect.value = milestoneId;
-                    }, 500);
-                }
-
-                // Scroll to the form
-                document.getElementById('fileDisputeForm').scrollIntoView({ behavior: 'smooth' });
-            }
-        });
-    </script>
+    <script src="{{ asset('js/contractor.js') }}"></script>
 </body>
 </html>
