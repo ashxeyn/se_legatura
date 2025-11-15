@@ -1,0 +1,23 @@
+// Common types of valid IDs for verification
+export const VALID_ID_TYPES = [
+  'Driver\'s License',
+  'Passport',
+  'National ID',
+  'Voter\'s ID',
+  'Social Security ID (SSS)',
+  'Tax Identification Number (TIN)',
+  'PhilHealth ID',
+  'Postal ID',
+  'Professional Regulation Commission (PRC) ID',
+  'Government Service Insurance System (GSIS) ID',
+  'Unified Multi-Purpose ID (UMID)',
+  'Senior Citizen ID',
+  'PWD ID',
+  'Barangay ID',
+  'School ID',
+  'Company ID',
+  'NBI Clearance',
+  'Police Clearance',
+  'Cedula',
+  'Other Government-Issued ID',
+].sort(); // Sort alphabetically for better UX

@@ -1062,4 +1062,114 @@ class authController extends Controller
         $barangays = $this->psgcService->getBarangaysByCity($cityCode);
         return response()->json($barangays);
     }
+
+    // API Methods for Mobile Authentication
+
+    // API Login
+    public function apiLogin(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|string'
+            ]);
+
+            $result = $this->authService->login($request->email, $request->password);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Login successful',
+                    'user' => $result['user'],
+                    'userType' => $result['userType']
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message']
+                ], 401);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during login'
+            ], 500);
+        }
+    }
+
+    // API Register
+    public function apiRegister(Request $request)
+    {
+        try {
+            // First, let's see what data we're receiving
+            \Illuminate\Support\Facades\Log::info('Registration attempt with data: ', $request->all());
+
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required|string|min:6'
+            ]);
+
+            // Generate a simple OTP hash for now
+            $otpHash = bcrypt('123456'); // You can implement proper OTP generation later
+
+            // Create user using your database structure
+            $user = \App\Models\User::create([
+                'username' => $request->name,
+                'email' => $request->email,
+                'password_hash' => bcrypt($request->password),
+                'OTP_hash' => $otpHash,
+                'user_type' => 'property_owner', // Default to property_owner for mobile registration
+                'is_verified' => 0, // Not verified initially
+                'is_active' => 1 // Active by default
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful',
+                'user' => [
+                    'id' => $user->user_id,
+                    'name' => $user->username,
+                    'email' => $user->email,
+                    'user_type' => $user->user_type
+                ]
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            // Log the actual error for debugging
+            \Illuminate\Support\Facades\Log::error('Registration error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during registration: ' . $e->getMessage(),
+                'debug' => [
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
+            ], 500);
+        }
+    }
+
+    // API Test Connection
+    public function apiTest()
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'API connection successful',
+            'timestamp' => now(),
+            'server' => 'Laravel ' . app()->version()
+        ], 200);
+    }
 }
