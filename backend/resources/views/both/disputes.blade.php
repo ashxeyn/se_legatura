@@ -27,6 +27,25 @@
             box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
         }
 
+        .evidence-file-input.has-file {
+            display: none;
+        }
+
+        .file-name-display {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #28a745;
+            border-radius: 4px;
+            background-color: #d4edda;
+            color: #155724;
+            font-size: 14px;
+            display: none;
+        }
+
+        .file-name-display.visible {
+            display: block;
+        }
+
         .remove-file-btn {
             background-color: #dc3545;
             color: white;
@@ -103,11 +122,52 @@
         .error-messages li {
             margin-bottom: 5px;
         }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+            transform: translateY(-1px);
+        }
+
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Dispute Management</h1>
+        <h1>Dispute Manawgement</h1>
         <p>File a dispute for project issues or view existing disputes.</p>
 
         <div id="errorMessages" class="error-messages"></div>
@@ -166,11 +226,11 @@
                 <label for="evidence_files">Evidence Files (Optional)</label>
                 <div id="file-upload-container">
                     <div class="file-input-group">
-                        <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
-                        <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+                        <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelectionWrapper(this, 'file-upload-container', 'add-more-files')">
+                        <button type="button" class="remove-file-btn" onclick="removeFileInputWrapper(this, 'file-upload-container', 'add-more-files')" style="display:none;">Remove</button>
                     </div>
                 </div>
-                <button type="button" id="add-more-files" onclick="addMoreFiles()" style="display:none;">📎 Add More Files</button>
+                <button type="button" id="add-more-files" onclick="addMoreFilesWrapper('file-upload-container', 'add-more-files')" style="display:none;">📎 Add More Files</button>
                 <small>Accepted formats: JPG, JPEG, PNG, PDF, DOC, DOCX (Max 5MB each, up to 10 files)<br>
                 <em>Click "Add More Files" to select additional evidence files one by one.</em></small>
             </div>
@@ -179,19 +239,22 @@
             <button type="button" onclick="resetForm()">Reset</button>
         </form>
 
+        {{-- Cancel Dispute Modal --}}
+        @include('modals.cancelDisputeModal')
+
         <div class="dispute-list">
             <h2>My Disputes</h2>
             <div id="disputeListContainer">
                 @if(count($disputes) > 0)
                     @foreach($disputes as $dispute)
-                        <div class="dispute-item">
+                        <div class="dispute-item" id="dispute-{{ $dispute->dispute_id }}">
                             <div class="dispute-header">
                                 <strong>{{ $dispute->project_title }}</strong>
                                 <span class="dispute-status status-{{ $dispute->dispute_status }}">
                                     {{ ucfirst(str_replace('_', ' ', $dispute->dispute_status)) }}
                                 </span>
                             </div>
-                            <p><strong>Type:</strong> {{ $dispute->dispute_type }}</p>
+                            <p><strong>Type:</strong> <span class="dispute-type-text">{{ $dispute->dispute_type }}</span></p>
                             @if($dispute->milestone_name)
                                 <p><strong>Milestone:</strong> {{ $dispute->milestone_name }}</p>
                             @endif
@@ -200,7 +263,7 @@
                             @endif
                             <p><strong>Filed by:</strong> {{ $dispute->raised_by_username }}</p>
                             <p><strong>Against:</strong> {{ $dispute->against_username }}</p>
-                            <p><strong>Description:</strong> {{ $dispute->dispute_desc }}</p>
+                            <p><strong>Description:</strong> <span class="dispute-desc-text">{{ $dispute->dispute_desc }}</span></p>
                             @if(isset($dispute->files) && count($dispute->files) > 0)
                                 <p><strong>Evidence Files:</strong></p>
                                 <ul class="evidence-files">
@@ -218,6 +281,22 @@
                             @if($dispute->admin_response)
                                 <p><strong>Admin Response:</strong> {{ $dispute->admin_response }}</p>
                             @endif
+
+                            @if($dispute->raised_by_user_id == Session::get('user')->user_id)
+                                <div class="dispute-actions" style="margin-top: 15px; display: flex; gap: 10px;">
+                                    @if($dispute->dispute_status == 'open')
+                                        <button class="btn btn-primary" onclick='openDisputeModal("edit", { dispute_id: {{ $dispute->dispute_id }}, dispute_type: "{{ $dispute->dispute_type }}", dispute_desc: `{{ addslashes($dispute->dispute_desc) }}`, files: {{ json_encode($dispute->files ?? []) }} })'>
+                                            Edit
+                                        </button>
+                                    @endif
+
+                                    @if(in_array($dispute->dispute_status, ['open', 'under_review']))
+                                        <button class="btn btn-danger" onclick="cancelDispute({{ $dispute->dispute_id }})">
+                                            Cancel
+                                        </button>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 @else
@@ -227,6 +306,10 @@
         </div>
     </div>
 
+    @include('modals.addEditDisputeModal')
+    @include('modals.cancelDisputeModal')
+
+    <script src="{{ asset('js/modal.js') }}"></script>
     <script src="{{ asset('js/both.js') }}"></script>
     <script src="{{ asset('js/contractor.js') }}"></script>
 </body>

@@ -68,16 +68,38 @@ function approveProgress(fileId) {
 
 function rejectProgress(fileId, itemId, projectId, milestoneId) {
     console.log('Reject progress clicked:', { fileId, itemId, projectId, milestoneId });
-    const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId + '&milestone_item_id=' + itemId;
-    console.log('Redirecting to:', url);
-    window.location.href = url;
+
+    // Check if modal exists (if we're on a page that includes it)
+    if (typeof openDisputeModal === 'function') {
+        openDisputeModal('add', {
+            project_id: projectId,
+            milestone_id: milestoneId,
+            milestone_item_id: itemId
+        });
+    } else {
+        // Fallback to redirect if modal not available
+        const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId + '&milestone_item_id=' + itemId;
+        console.log('Redirecting to:', url);
+        window.location.href = url;
+    }
 }
 
 function disputePayment(paymentId, itemId, projectId, milestoneId) {
     console.log('Dispute payment clicked:', { paymentId, itemId, projectId, milestoneId });
-    const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId + '&milestone_item_id=' + itemId;
-    console.log('Redirecting to:', url);
-    window.location.href = url;
+
+    // Check if modal exists (if we're on a page that includes it)
+    if (typeof openDisputeModal === 'function') {
+        openDisputeModal('add', {
+            project_id: projectId,
+            milestone_id: milestoneId,
+            milestone_item_id: itemId
+        });
+    } else {
+        // Fallback to redirect if modal not available
+        const url = '/both/disputes?project_id=' + projectId + '&milestone_id=' + milestoneId + '&milestone_item_id=' + itemId;
+        console.log('Redirecting to:', url);
+        window.location.href = url;
+    }
 }
 
 // Initialize project details page
@@ -152,8 +174,8 @@ function resetForm() {
         if (fileContainer && addMoreBtn) {
             fileContainer.innerHTML = `
                 <div class="file-input-group">
-                    <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
-                    <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+                    <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelectionWrapper(this, 'file-upload-container', 'add-more-files')">
+                    <button type="button" class="remove-file-btn" onclick="removeFileInputWrapper(this, 'file-upload-container', 'add-more-files')" style="display:none;">Remove</button>
                 </div>
             `;
             addMoreBtn.style.display = 'none';
@@ -365,8 +387,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Reset to single file input
                         fileContainer.innerHTML = `
                             <div class="file-input-group">
-                                <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
-                                <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+                                <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelectionWrapper(this, 'file-upload-container', 'add-more-files')">
+                                <button type="button" class="remove-file-btn" onclick="removeFileInputWrapper(this, 'file-upload-container', 'add-more-files')" style="display:none;">Remove</button>
                             </div>
                         `;
                         addMoreBtn.style.display = 'none';
@@ -532,10 +554,156 @@ function resetForm() {
     if (fileContainer && addMoreBtn) {
         fileContainer.innerHTML = `
             <div class="file-input-group">
-                <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelection(this)">
-                <button type="button" class="remove-file-btn" onclick="removeFileInput(this)" style="display:none;">Remove</button>
+                <input type="file" name="evidence_files[]" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" class="evidence-file-input" onchange="handleFileSelectionWrapper(this, 'file-upload-container', 'add-more-files')">
+                <button type="button" class="remove-file-btn" onclick="removeFileInputWrapper(this, 'file-upload-container', 'add-more-files')" style="display:none;">Remove</button>
             </div>
         `;
         addMoreBtn.style.display = 'none';
+    }
+}
+
+// ========== REUSABLE FILE UPLOAD FUNCTIONS ==========
+// These functions are used by both disputes and progress upload features
+
+function handleFileSelection(input) {
+    if (input.files && input.files.length > 0) {
+        const fileGroup = input.parentElement;
+
+        // Hide the file input and show file name instead
+        input.classList.add('has-file');
+
+        // Check if file name display already exists
+        let fileNameDisplay = fileGroup.querySelector('.file-name-display');
+        if (!fileNameDisplay) {
+            fileNameDisplay = document.createElement('div');
+            fileNameDisplay.className = 'file-name-display';
+            fileGroup.insertBefore(fileNameDisplay, input);
+        }
+
+        fileNameDisplay.textContent = '📄 ' + input.files[0].name;
+        fileNameDisplay.classList.add('visible');
+
+        // Show remove button
+        const removeBtn = fileGroup.querySelector('.remove-file-btn');
+        if (removeBtn) {
+            removeBtn.style.display = 'inline-block';
+        }
+
+        const addMoreBtn = document.getElementById('add-more-files');
+        if (addMoreBtn) {
+            const fileInputs = document.querySelectorAll('.evidence-file-input, .progress-file-input');
+            if (fileInputs.length < 10) {
+                addMoreBtn.style.display = 'inline-block';
+            }
+        }
+    }
+}
+
+function addMoreFiles() {
+    const container = document.getElementById('file-upload-container');
+    if (!container) return;
+
+    const fileInputs = container.querySelectorAll('.file-input-group');
+    if (fileInputs.length >= 10) {
+        alert('Maximum of 10 files allowed');
+        return;
+    }
+
+    // Create a temporary hidden file input
+    const tempInput = document.createElement('input');
+    tempInput.type = 'file';
+    tempInput.style.display = 'none';
+
+    const existingInput = container.querySelector('input[type="file"]');
+    tempInput.name = existingInput.getAttribute('name');
+    tempInput.accept = existingInput.getAttribute('accept');
+    tempInput.className = existingInput.getAttribute('class');
+
+    // Handle file selection
+    tempInput.onchange = function() {
+        if (this.files && this.files.length > 0) {
+            // Create the new file group only after file is selected
+            const newFileGroup = document.createElement('div');
+            newFileGroup.className = 'file-input-group';
+
+            // Create file name display div
+            const fileNameDisplay = document.createElement('div');
+            fileNameDisplay.className = 'file-name-display visible';
+            fileNameDisplay.textContent = '📄 ' + tempInput.files[0].name;
+
+            const newInput = document.createElement('input');
+            newInput.type = 'file';
+            newInput.name = this.name;
+            newInput.accept = this.accept;
+            newInput.className = this.className + ' has-file';
+            newInput.onchange = function() { handleFileSelection(this); };
+
+            // Transfer the selected file to the new input
+            const dataTransfer = new DataTransfer();
+            Array.from(tempInput.files).forEach(file => dataTransfer.items.add(file));
+            newInput.files = dataTransfer.files;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-file-btn';
+            removeBtn.textContent = 'Remove';
+            removeBtn.onclick = function() { removeFileInput(this); };
+            removeBtn.style.display = 'inline-block';
+
+            newFileGroup.appendChild(fileNameDisplay);
+            newFileGroup.appendChild(newInput);
+            newFileGroup.appendChild(removeBtn);
+            container.appendChild(newFileGroup);
+
+            // Check if we've reached the limit
+            const updatedFileInputs = container.querySelectorAll('.file-input-group');
+            if (updatedFileInputs.length >= 10) {
+                const addMoreBtn = document.getElementById('add-more-files');
+                if (addMoreBtn) {
+                    addMoreBtn.style.display = 'none';
+                }
+            }
+        }
+        // Remove temp input
+        document.body.removeChild(tempInput);
+    };
+
+    // Add temp input to body and trigger click
+    document.body.appendChild(tempInput);
+    tempInput.click();
+}
+
+function removeFileInput(button) {
+    const container = document.getElementById('file-upload-container');
+    if (!container) return;
+
+    const fileGroup = button.parentElement;
+    const fileInputs = container.querySelectorAll('.file-input-group');
+
+    if (fileInputs.length > 1) {
+        fileGroup.remove();
+
+        const addMoreBtn = document.getElementById('add-more-files');
+        if (addMoreBtn && fileInputs.length - 1 < 10) {
+            addMoreBtn.style.display = 'inline-block';
+        }
+    } else {
+        const input = fileGroup.querySelector('input[type="file"]');
+        const fileNameDisplay = fileGroup.querySelector('.file-name-display');
+
+        if (input) {
+            input.value = '';
+            input.classList.remove('has-file');
+            button.style.display = 'none';
+        }
+
+        if (fileNameDisplay) {
+            fileNameDisplay.classList.remove('visible');
+        }
+
+        const addMoreBtn = document.getElementById('add-more-files');
+        if (addMoreBtn) {
+            addMoreBtn.style.display = 'none';
+        }
     }
 }

@@ -1,0 +1,552 @@
+var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+var selectedPaymentMode = '';
+var startDateLimit = null;
+var endDateLimit = null;
+var milestoneItems = [];
+var projectDetailsMap = {};
+var step1State = null;
+var step2State = null;
+
+if (window.contractorProjects && Array.isArray(window.contractorProjects)) {
+	window.contractorProjects.forEach(function(project) {
+		if (project && project.project_id) {
+			projectDetailsMap[String(project.project_id)] = project;
+		}
+	});
+}
+
+// MILESTONE SETUP FUNCTIONS
+function showMilestoneError(message) {
+	var errorDiv = document.getElementById('milestoneErrorMessages');
+	errorDiv.innerHTML = '<p>' + message + '</p>';
+	errorDiv.style.display = 'block';
+	document.getElementById('milestoneSuccessMessages').style.display = 'none';
+}
+
+function showMilestoneSuccess(message) {
+	var successDiv = document.getElementById('milestoneSuccessMessages');
+	successDiv.innerHTML = '<p>' + message + '</p>';
+	successDiv.style.display = 'block';
+	document.getElementById('milestoneErrorMessages').style.display = 'none';
+}
+
+function hideAllSteps() {
+	var steps = document.querySelectorAll('.step-container');
+	steps.forEach(function(step) {
+		step.style.display = 'none';
+	});
+}
+
+function showStep(stepId) {
+	var targetStep = document.getElementById(stepId);
+	if (!targetStep) {
+		return;
+	}
+	hideAllSteps();
+	targetStep.style.display = 'block';
+	document.getElementById('milestoneErrorMessages').style.display = 'none';
+	document.getElementById('milestoneSuccessMessages').style.display = 'none';
+}
+
+function goBackFromFirstStep() {
+	window.history.back();
+}
+
+function renderMilestoneItems() {
+	var listContainer = document.getElementById('milestoneItemsList');
+	var totalDisplay = document.getElementById('totalPercentageDisplay');
+	listContainer.innerHTML = '';
+
+	if (milestoneItems.length === 0) {
+		totalDisplay.textContent = '0';
+		return;
+	}
+
+	var total = 0;
+	var list = document.createElement('div');
+
+	milestoneItems.forEach(function(item, index) {
+		total += item.percentage;
+		var itemDiv = document.createElement('div');
+		itemDiv.style.borderTop = '1px solid #ccc';
+		itemDiv.style.padding = '8px 0';
+		itemDiv.innerHTML = '<p><strong>Order ' + (index + 1) + ':</strong> ' + item.percentage + '% - ' + item.title + '</p>' +
+			'<p>' + item.description + '</p>' +
+			'<p>Finish by: ' + item.date_to_finish + '</p>' +
+			'<button type="button" onclick="removeMilestoneItem(' + index + ')">Remove</button>';
+		list.appendChild(itemDiv);
+	});
+
+	listContainer.appendChild(list);
+	totalDisplay.textContent = total.toFixed(2).replace(/\.00$/, '');
+}
+
+function removeMilestoneItem(index) {
+	milestoneItems.splice(index, 1);
+	renderMilestoneItems();
+}
+
+function updateProjectDescription(projectId) {
+	var container = document.getElementById('selectedProjectDetails');
+	var descriptionText = document.getElementById('projectDescriptionText');
+	if (!container || !descriptionText) {
+		return;
+	}
+
+	var project = projectDetailsMap[String(projectId)] || null;
+	if (project) {
+		descriptionText.textContent = project.project_description || 'No description provided.';
+		container.style.display = 'block';
+	} else {
+		descriptionText.textContent = '';
+		container.style.display = 'none';
+	}
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+	var step1Form = document.getElementById('milestoneStep1Form');
+	var step2Form = document.getElementById('milestoneStep2Form');
+	var addItemButton = document.getElementById('addMilestoneItemButton');
+	var submitMilestoneButton = document.getElementById('submitMilestoneButton');
+	var downpaymentContainer = document.getElementById('downpaymentContainer');
+	var projectSelect = document.getElementById('project_id');
+
+	if (projectSelect) {
+		projectSelect.addEventListener('change', function() {
+			updateProjectDescription(projectSelect.value);
+		});
+		updateProjectDescription(projectSelect.value);
+	}
+
+	if (step1Form) {
+		step1Form.addEventListener('submit', function(e) {
+			e.preventDefault();
+			var projectId = document.getElementById('project_id').value;
+			var milestoneName = document.getElementById('milestone_name').value.trim();
+			var paymentMode = document.getElementById('payment_mode').value;
+
+			if (!projectId || !milestoneName || !paymentMode) {
+				showMilestoneError('Please complete all required fields.');
+				return;
+			}
+
+			var formData = new FormData(step1Form);
+
+			fetch('/contractor/milestone/setup/step1', {
+				method: 'POST',
+				headers: {
+					'X-CSRF-TOKEN': csrfToken
+				},
+				body: formData
+			})
+			.then(function(response) { return response.json(); })
+			.then(function(data) {
+				if (data.success) {
+					var newStep1State = {
+						project_id: projectId,
+						milestone_name: milestoneName,
+						payment_mode: paymentMode
+					};
+
+					var projectChanged = !step1State || step1State.project_id !== newStep1State.project_id;
+					var paymentModeChanged = !step1State || step1State.payment_mode !== newStep1State.payment_mode;
+
+					if (projectChanged || paymentModeChanged) {
+						milestoneItems = [];
+						renderMilestoneItems();
+					}
+
+					step1State = newStep1State;
+					step2State = null;
+					selectedPaymentMode = data.payment_mode;
+					downpaymentContainer.style.display = selectedPaymentMode === 'downpayment' ? 'block' : 'none';
+					showStep('milestoneStep2');
+				} else {
+					var errorMessage = Array.isArray(data.errors) ? data.errors.join(', ') : 'An error occurred.';
+					showMilestoneError(errorMessage);
+				}
+			})
+			.catch(function() {
+				showMilestoneError('Network error. Please try again.');
+			});
+		});
+	}
+
+	if (step2Form) {
+		step2Form.addEventListener('submit', function(e) {
+			e.preventDefault();
+			var startDate = document.getElementById('start_date').value;
+			var endDate = document.getElementById('end_date').value;
+			var totalCost = document.getElementById('total_project_cost').value;
+			var downpaymentInput = document.getElementById('downpayment_amount');
+
+			if (!startDate || !endDate || !totalCost) {
+				showMilestoneError('Please fill in the required fields.');
+				return;
+			}
+
+			if (selectedPaymentMode === 'downpayment') {
+				if (!downpaymentInput.value) {
+					showMilestoneError('Downpayment amount is required for downpayment plan.');
+					return;
+				}
+				if (parseFloat(downpaymentInput.value) >= parseFloat(totalCost)) {
+					showMilestoneError('Downpayment must be less than the total project cost.');
+					return;
+				}
+			}
+
+			var formData = new FormData(step2Form);
+
+			fetch('/contractor/milestone/setup/step2', {
+				method: 'POST',
+				headers: {
+					'X-CSRF-TOKEN': csrfToken
+				},
+				body: formData
+			})
+			.then(function(response) { return response.json(); })
+			.then(function(data) {
+				if (data.success) {
+					var downpaymentValue = downpaymentInput ? downpaymentInput.value : '';
+					var parsedDownpayment = selectedPaymentMode === 'downpayment' ? parseFloat(downpaymentValue) : null;
+					if (selectedPaymentMode === 'downpayment' && isNaN(parsedDownpayment)) {
+						parsedDownpayment = null;
+					}
+
+					var newStep2State = {
+						start_date: data.start_date,
+						end_date: data.end_date,
+						total_cost: parseFloat(totalCost),
+						downpayment: parsedDownpayment
+					};
+
+					var shouldResetItems = true;
+					if (step2State &&
+						step2State.start_date === newStep2State.start_date &&
+						step2State.end_date === newStep2State.end_date &&
+						step2State.total_cost === newStep2State.total_cost &&
+						((step2State.downpayment === null && newStep2State.downpayment === null) ||
+							step2State.downpayment === newStep2State.downpayment)) {
+						shouldResetItems = false;
+					}
+
+					step2State = newStep2State;
+					startDateLimit = data.start_date;
+					endDateLimit = data.end_date;
+
+					if (shouldResetItems) {
+						milestoneItems = [];
+					}
+
+					renderMilestoneItems();
+					showStep('milestoneStep3');
+				} else {
+					var errorMessage = Array.isArray(data.errors) ? data.errors.join(', ') : 'An error occurred.';
+					showMilestoneError(errorMessage);
+				}
+			})
+			.catch(function() {
+				showMilestoneError('Network error. Please try again.');
+			});
+		});
+	}
+
+	if (addItemButton) {
+		addItemButton.addEventListener('click', function() {
+			var percentageField = document.getElementById('item_percentage');
+			var titleField = document.getElementById('item_title');
+			var descriptionField = document.getElementById('item_description');
+			var dateField = document.getElementById('item_date');
+
+			var percentage = parseFloat(percentageField.value);
+			var title = titleField.value.trim();
+			var description = descriptionField.value.trim();
+			var dateValue = dateField.value;
+
+			if (!percentage || !title || !description || !dateValue) {
+				showMilestoneError('Please complete all milestone item fields before adding.');
+				return;
+			}
+
+			if (percentage <= 0) {
+				showMilestoneError('Percentage must be greater than zero.');
+				return;
+			}
+
+			var currentTotal = milestoneItems.reduce(function(total, item) {
+				return total + item.percentage;
+			}, 0);
+
+			if (currentTotal + percentage > 100) {
+				showMilestoneError('Total percentage cannot exceed 100%.');
+				return;
+			}
+
+			if (startDateLimit && dateValue < startDateLimit) {
+				showMilestoneError('Milestone item date cannot be before the project start date.');
+				return;
+			}
+
+			if (endDateLimit && dateValue > endDateLimit) {
+				showMilestoneError('Milestone item date cannot be after the project end date.');
+				return;
+			}
+
+			milestoneItems.push({
+				percentage: percentage,
+				title: title,
+				description: description,
+				date_to_finish: dateValue
+			});
+
+			percentageField.value = '';
+			titleField.value = '';
+			descriptionField.value = '';
+			dateField.value = '';
+
+			renderMilestoneItems();
+			showMilestoneSuccess('Milestone item added.');
+		});
+	}
+
+	if (submitMilestoneButton) {
+		submitMilestoneButton.addEventListener('click', function() {
+			if (milestoneItems.length === 0) {
+				showMilestoneError('Please add at least one milestone item.');
+				return;
+			}
+
+			var total = milestoneItems.reduce(function(total, item) {
+				return total + item.percentage;
+			}, 0);
+
+			if (Math.round(total * 100) / 100 !== 100) {
+				showMilestoneError('Milestone percentages must add up to exactly 100%.');
+				return;
+			}
+
+			var lastItem = milestoneItems[milestoneItems.length - 1];
+			if (endDateLimit && lastItem.date_to_finish !== endDateLimit) {
+				showMilestoneError('The last milestone item must finish on the project end date.');
+				return;
+			}
+
+			var formData = new FormData();
+			formData.append('items', JSON.stringify(milestoneItems));
+
+			fetch('/contractor/milestone/setup/submit', {
+				method: 'POST',
+				headers: {
+					'X-CSRF-TOKEN': csrfToken
+				},
+				body: formData
+			})
+			.then(function(response) { return response.json(); })
+			.then(function(data) {
+				if (data.success) {
+					showMilestoneSuccess(data.message);
+					setTimeout(function() {
+						window.location.href = data.redirect || '/dashboard';
+					}, 1500);
+				} else {
+					var errorMessage = Array.isArray(data.errors) ? data.errors.join(', ') : 'An error occurred.';
+					showMilestoneError(errorMessage);
+				}
+			})
+			.catch(function() {
+				showMilestoneError('Network error. Please try again.');
+			});
+		});
+	}
+});
+
+// Disputes page functionality
+// Pre-fill form from URL parameters (when coming from project details page)
+function initializeDisputeForm() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const projectId = urlParams.get('project_id');
+
+    if (projectId) {
+        const projectSelect = document.getElementById('project_id');
+        if (projectSelect) {
+            projectSelect.value = projectId;
+
+            // Trigger change event to load milestones
+            // The milestone and milestone item will be auto-selected by both.js
+            const event = new Event('change');
+            projectSelect.dispatchEvent(event);
+
+            // Scroll to the form
+            const disputeForm = document.getElementById('fileDisputeForm');
+            if (disputeForm) {
+                setTimeout(() => {
+                    disputeForm.scrollIntoView({ behavior: 'smooth' });
+                }, 800);
+            }
+        }
+    }
+}
+
+// Multiple file upload functionality
+function handleFileSelection(input) {
+    const addMoreBtn = document.getElementById('add-more-files');
+    const container = document.getElementById('file-upload-container');
+
+    if (!addMoreBtn || !container) return;
+
+    const fileInputs = container.querySelectorAll('.evidence-file-input');
+
+    // Check if any file is selected in any input
+    let hasFiles = false;
+    fileInputs.forEach(fileInput => {
+        if (fileInput.files.length > 0) {
+            hasFiles = true;
+        }
+    });
+
+    // Show/hide Add More Files button based on file selection
+    if (hasFiles) {
+        addMoreBtn.style.display = 'inline-block';
+    } else {
+        addMoreBtn.style.display = 'none';
+    }
+
+    updateRemoveButtons();
+}
+
+function addMoreFiles() {
+    const container = document.getElementById('file-upload-container');
+    if (!container) return;
+
+    const fileInputs = container.querySelectorAll('.file-input-group');
+
+    // Limit to 10 files
+    if (fileInputs.length >= 10) {
+        alert('Maximum 10 files allowed');
+        return;
+    }
+
+    // Create a hidden file input to trigger file selection
+    const hiddenFileInput = document.createElement('input');
+    hiddenFileInput.type = 'file';
+    hiddenFileInput.accept = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
+    hiddenFileInput.style.display = 'none';
+
+    // When file is selected, create the actual file input group
+    hiddenFileInput.onchange = function() {
+        if (this.files.length > 0) {
+            const selectedFile = this.files[0];
+
+            const newFileGroup = document.createElement('div');
+            newFileGroup.className = 'file-input-group';
+
+            // Create file input and set the selected file
+            const newInput = document.createElement('input');
+            newInput.type = 'file';
+            newInput.name = 'evidence_files[]';
+            newInput.accept = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
+            newInput.className = 'evidence-file-input';
+            newInput.onchange = function() { handleFileSelection(this); };
+
+            // Use DataTransfer to set the file
+            const dt = new DataTransfer();
+            dt.items.add(selectedFile);
+            newInput.files = dt.files;
+
+            // Create remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-file-btn';
+            removeBtn.textContent = 'Remove';
+            removeBtn.onclick = function() { removeFileInput(this); };
+
+            // Add elements to the group
+            newFileGroup.appendChild(newInput);
+            newFileGroup.appendChild(removeBtn);
+
+            container.appendChild(newFileGroup);
+            updateRemoveButtons();
+            handleFileSelection(newInput);
+        }
+    };
+
+    // Trigger the file selection dialog
+    hiddenFileInput.click();
+}
+
+function removeFileInput(button) {
+    const container = document.getElementById('file-upload-container');
+    if (!container) return;
+
+    const fileGroup = button.parentElement;
+    const fileGroups = container.querySelectorAll('.file-input-group');
+    const isFirstInput = Array.from(fileGroups).indexOf(fileGroup) === 0;
+
+    if (isFirstInput && fileGroups.length === 1) {
+        // If this is the only (first) input, just clear it instead of removing
+        const fileInput = fileGroup.querySelector('.evidence-file-input');
+        fileInput.value = '';
+    } else {
+        // Remove the file group if it's not the first or there are multiple inputs
+        container.removeChild(fileGroup);
+    }
+
+    // Check if we still have files selected after removal
+    const fileInputs = container.querySelectorAll('.evidence-file-input');
+    let hasFiles = false;
+    fileInputs.forEach(fileInput => {
+        if (fileInput.files.length > 0) {
+            hasFiles = true;
+        }
+    });
+
+    // Hide Add More Files button if no files are selected
+    const addMoreBtn = document.getElementById('add-more-files');
+    if (addMoreBtn && !hasFiles) {
+        addMoreBtn.style.display = 'none';
+    }
+
+    updateRemoveButtons();
+}
+
+function updateRemoveButtons() {
+    const container = document.getElementById('file-upload-container');
+    if (!container) return;
+
+    const fileGroups = container.querySelectorAll('.file-input-group');
+
+    fileGroups.forEach((group, index) => {
+        const removeBtn = group.querySelector('.remove-file-btn');
+        const fileInput = group.querySelector('.evidence-file-input');
+
+        if (!removeBtn || !fileInput) return;
+
+        // Show remove button if:
+        // 1. There's more than one file input, OR
+        // 2. This is the first input and it has a file selected
+        const hasFile = fileInput.files.length > 0;
+        const isFirstInput = index === 0;
+        const shouldShowRemove = fileGroups.length > 1 || (isFirstInput && hasFile);
+
+        removeBtn.style.display = shouldShowRemove ? 'inline-block' : 'none';
+    });
+}
+
+// Initialize dispute form when page loads (only if on disputes page)
+if (typeof window !== 'undefined') {
+    function initDisputesIfPresent() {
+        // Only initialize if we're on the disputes page
+        if (document.getElementById('fileDisputeForm')) {
+            initializeDisputeForm();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDisputesIfPresent);
+    } else {
+        initDisputesIfPresent();
+    }
+
+    // PROGRESS UPLOAD FUNCTIONS
+}

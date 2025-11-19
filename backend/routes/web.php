@@ -68,6 +68,9 @@ Route::get('/both/disputes', [disputeController::class, 'showDisputePage']);
 Route::post('/both/disputes/file', [disputeController::class, 'fileDispute']);
 Route::get('/both/disputes/list', [disputeController::class, 'getDisputes']);
 Route::get('/both/disputes/{disputeId}', [disputeController::class, 'getDisputeDetails']);
+Route::put('/both/disputes/{disputeId}', [disputeController::class, 'updateDispute']);
+Route::post('/both/disputes/{disputeId}/cancel', [disputeController::class, 'cancelDispute']);
+Route::delete('/both/disputes/evidence/{fileId}', [disputeController::class, 'deleteEvidenceFile']);
 Route::get('/both/disputes/milestones/{projectId}', [disputeController::class, 'getMilestones']);
 Route::get('/both/disputes/milestone-items/{milestoneId}', [disputeController::class, 'getMilestoneItems']);
 Route::post('/both/disputes/check-existing', [disputeController::class, 'checkExistingDispute']);
@@ -75,5 +78,12 @@ Route::post('/both/disputes/check-existing', [disputeController::class, 'checkEx
 // Projects Routes
 Route::get('/both/projects', [disputeController::class, 'showProjectsPage']);
 Route::get('/both/projects/{projectId}', [disputeController::class, 'showProjectDetails']);
+
+// Contractor Progress Upload Routes
+Route::get('/contractor/progress/upload', [\App\Http\Controllers\contractor\progressUploadController::class, 'showUploadPage']);
+Route::post('/contractor/progress/upload', [\App\Http\Controllers\contractor\progressUploadController::class, 'uploadProgress']);
+Route::get('/contractor/progress/files/{itemId}', [\App\Http\Controllers\contractor\progressUploadController::class, 'getProgressFiles']);
+
+
 
 

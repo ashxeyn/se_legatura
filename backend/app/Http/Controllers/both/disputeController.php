@@ -491,7 +491,10 @@ class disputeController extends Controller
                 ]
             ], 200);
         } else {
-            return view('both.projectDetails', compact('project', 'milestones', 'isOwner', 'isContractor'));
+            // Get projects for the modal
+            $projects = $this->disputeClass->getUserProjects($user->user_id);
+
+            return view('both.projectDetails', compact('project', 'milestones', 'isOwner', 'isContractor', 'projects'));
         }
     }
 
@@ -537,6 +540,236 @@ class disputeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error checking existing disputes'
+            ], 500);
+        }
+    }
+
+    public function updateDispute(Request $request, $disputeId)
+    {
+        try {
+            $authCheck = $this->checkAuthentication($request);
+            if ($authCheck) {
+                return $authCheck;
+            }
+
+            $user = Session::get('user');
+            $userId = $user->user_id;
+
+            // Get dispute and verify user sino nagdispute
+            $dispute = $this->disputeClass->getDisputeById($disputeId);
+
+            if (!$dispute) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dispute not found'
+                ], 404);
+            }
+
+            if ($dispute->raised_by_user_id != $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only edit disputes that you filed'
+                ], 403);
+            }
+
+            if ($dispute->dispute_status !== 'open') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only edit disputes with "open" status'
+                ], 400);
+            }
+
+            $request->validate([
+                'dispute_type' => 'sometimes|required|in:Payment,Delay,Quality,Others',
+                'dispute_desc' => 'sometimes|required|string|max:2000',
+                'evidence_files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:5120'
+            ]);
+
+            $updateData = [];
+            if ($request->has('dispute_type')) {
+                $updateData['dispute_type'] = $request->input('dispute_type');
+            }
+            if ($request->has('dispute_desc')) {
+                $updateData['dispute_desc'] = $request->input('dispute_desc');
+            }
+
+            // Update dispute
+            $this->disputeClass->updateDispute($disputeId, $updateData);
+
+            \Log::info('Checking for deleted_file_ids', [
+                'has_deleted_file_ids' => $request->has('deleted_file_ids'),
+                'deleted_file_ids_value' => $request->input('deleted_file_ids'),
+                'all_input' => $request->all()
+            ]);
+
+            if ($request->has('deleted_file_ids') && !empty($request->input('deleted_file_ids'))) {
+                $deletedFileIds = explode(',', $request->input('deleted_file_ids'));
+                \Log::info('Processing deleted files', ['file_ids' => $deletedFileIds]);
+
+                foreach ($deletedFileIds as $fileId) {
+                    if (!empty($fileId) && is_numeric($fileId)) {
+                        $result = $this->disputeClass->deleteDisputeFile($fileId);
+                        \Log::info('Deleted file', ['file_id' => $fileId, 'result' => $result]);
+                    }
+                }
+            }
+
+            $uploadedFiles = [];
+            if ($request->hasFile('evidence_files')) {
+                $files = $request->file('evidence_files');
+                if (!is_array($files)) {
+                    $files = [$files];
+                }
+
+                foreach ($files as $file) {
+                    $originalName = $file->getClientOriginalName();
+                    $fileSize = $file->getSize();
+                    $fileExtension = $file->getClientOriginalExtension();
+                    $fileName = time() . '_' . uniqid() . '.' . $fileExtension;
+
+                    $storagePath = $file->storeAs('disputes/evidence', $fileName, 'public');
+
+                    $evidenceId = $this->disputeClass->createDisputeFile(
+                        $disputeId,
+                        $storagePath,
+                        $originalName,
+                        $file->getMimeType(),
+                        $fileSize
+                    );
+
+                    $uploadedFiles[] = [
+                        'evidence_id' => $evidenceId,
+                        'original_name' => $originalName,
+                        'storage_path' => $storagePath
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Dispute updated successfully',
+                'data' => [
+                    'dispute_id' => $disputeId,
+                    'new_files' => $uploadedFiles
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating dispute: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function cancelDispute(Request $request, $disputeId)
+    {
+        try {
+            $authCheck = $this->checkAuthentication($request);
+            if ($authCheck) {
+                return $authCheck;
+            }
+
+            $user = Session::get('user');
+            $userId = $user->user_id;
+
+            $dispute = $this->disputeClass->getDisputeById($disputeId);
+
+            if (!$dispute) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dispute not found'
+                ], 404);
+            }
+
+            if ($dispute->raised_by_user_id != $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only cancel disputes that you filed'
+                ], 403);
+            }
+
+            // Only allow cancelling if status is 'open' or 'under_review'
+            if (!in_array($dispute->dispute_status, ['open', 'under_review'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only cancel disputes with "open" or "under review" status'
+                ], 400);
+            }
+
+            $this->disputeClass->cancelDispute($disputeId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Dispute cancelled successfully',
+                'data' => [
+                    'dispute_id' => $disputeId
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error cancelling dispute: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteEvidenceFile(Request $request, $fileId)
+    {
+        try {
+            $authCheck = $this->checkAuthentication($request);
+            if ($authCheck) {
+                return $authCheck;
+            }
+
+            $user = Session::get('user');
+            $userId = $user->user_id;
+
+            // Get the evidence file and its dispute
+            $evidence = $this->disputeClass->getEvidenceFile($fileId);
+
+            if (!$evidence) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Evidence file not found'
+                ], 404);
+            }
+
+            $dispute = $this->disputeClass->getDisputeById($evidence->dispute_id);
+
+            if (!$dispute || $dispute->raised_by_user_id != $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only delete files from your own disputes'
+                ], 403);
+            }
+
+            if ($dispute->dispute_status !== 'open') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only delete files from disputes with "open" status'
+                ], 400);
+            }
+
+            $deleted = $this->disputeClass->deleteDisputeFile($fileId);
+
+            if ($deleted) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evidence file deleted successfully'
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete evidence file'
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting evidence file: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -3,6 +3,7 @@
 namespace App\Models\Both;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class disputeClass
 {
@@ -320,7 +321,7 @@ class disputeClass
             ];
         }
 
-        // If project has contractor, check if contractor user exists
+        // If may contractor yung project, double check if yung contractor gaexist
         if ($project->contractor_id) {
             $contractorExists = DB::table('users')->where('user_id', $project->contractor_id)->exists();
             if (!$contractorExists) {
@@ -359,5 +360,91 @@ class disputeClass
             ->whereNull('milestone_id')
             ->whereIn('dispute_status', ['open', 'under_review'])
             ->exists();
+    }
+
+    public function updateDispute($disputeId, $data)
+    {
+        $updateData = [];
+
+        if (isset($data['dispute_type'])) {
+            $updateData['dispute_type'] = $data['dispute_type'];
+        }
+
+        if (isset($data['dispute_desc'])) {
+            $updateData['dispute_desc'] = $data['dispute_desc'];
+        }
+
+        if (isset($data['dispute_status'])) {
+            $updateData['dispute_status'] = $data['dispute_status'];
+        }
+
+        if (!empty($updateData)) {
+            return DB::table('disputes')
+                ->where('dispute_id', $disputeId)
+                ->update($updateData);
+        }
+
+        return false;
+    }
+
+    public function cancelDispute($disputeId)
+    {
+        return DB::table('disputes')
+            ->where('dispute_id', $disputeId)
+            ->update([
+                'dispute_status' => 'cancelled',
+                'resolved_at' => now()
+            ]);
+    }
+
+    public function deleteDisputeFiles($disputeId)
+    {
+        $files = DB::table('dispute_files')
+            ->where('dispute_id', $disputeId)
+            ->get();
+
+        foreach ($files as $file) {
+            // Delete file from storage
+            if (Storage::disk('public')->exists($file->storage_path)) {
+                Storage::disk('public')->delete($file->storage_path);
+            }
+        }
+
+        return DB::table('dispute_files')
+            ->where('dispute_id', $disputeId)
+            ->delete();
+    }
+
+    public function deleteDisputeFile($fileId)
+    {
+        $file = DB::table('dispute_files')
+            ->where('file_id', $fileId)
+            ->first();
+
+        if ($file) {
+            if (Storage::disk('public')->exists($file->storage_path)) {
+                Storage::disk('public')->delete($file->storage_path);
+            }
+
+            return DB::table('dispute_files')
+                ->where('file_id', $fileId)
+                ->delete();
+        }
+
+        return false;
+    }
+
+    public function getDisputeFileById($fileId)
+    {
+        return DB::table('dispute_files')
+            ->where('file_id', $fileId)
+            ->first();
+    }
+
+    public function getEvidenceFile($fileId)
+    {
+        return DB::table('dispute_files')
+            ->where('file_id', $fileId)
+            ->first();
     }
 }

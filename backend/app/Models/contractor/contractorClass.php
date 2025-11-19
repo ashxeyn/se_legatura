@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\DB;
 
 class contractorClass
 {
+
+    // MILESTONE SETUP FUNCTIONS
+
 	public function getContractorByUserId($userId)
 	{
 		return DB::table('contractors')
@@ -109,4 +112,5 @@ class contractorClass
 			'date_to_finish' => $data['date_to_finish']
 		]);
 	}
+
 }

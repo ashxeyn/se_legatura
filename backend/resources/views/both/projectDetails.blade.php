@@ -306,7 +306,6 @@
                                 <p><small>Due: {{ date('M d, Y', strtotime($item['date_to_finish'])) }}</small></p>
 
                                 @if($isOwner)
-                                    <!-- Property Owner View: See Progress Files Uploaded by Contractor -->
                                     <h5>Progress Reports:</h5>
                                     @if(count($item['progress_files']) > 0)
                                         @foreach($item['progress_files'] as $file)
@@ -332,7 +331,12 @@
                                         <div class="empty-state">No progress reports uploaded yet.</div>
                                     @endif
                                 @else
-                                    <!-- Contractor View: See Payment Validations Uploaded by Owner -->
+                                    <div style="margin: 15px 0;">
+                                        <a href="/contractor/progress/upload?item_id={{ $item['item_id'] }}&project_id={{ $project->project_id }}" class="btn btn-success">
+                                            Upload Progress
+                                        </a>
+                                    </div>
+
                                     <h5>Payment Validations:</h5>
                                     @if(isset($item['payments']) && count($item['payments']) > 0)
                                         @foreach($item['payments'] as $payment)
@@ -377,6 +381,9 @@
         @endif
     </div>
 
+    @include('modals.addEditDisputeModal')
+
+    <script src="{{ asset('js/modal.js') }}"></script>
     <script src="{{ asset('js/both.js') }}"></script>
 </body>
 </html>
