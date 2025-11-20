@@ -206,11 +206,39 @@ class disputeClass
 
     public function getProgressFilesByItem($itemId)
     {
-        return DB::table('progress_files')
-            ->where('item_id', $itemId)
-            ->select('*')
-            ->orderBy('uploaded_at', 'desc')
+        $progressList = DB::table('progress')
+            ->where('milestone_item_id', $itemId)
+            ->where('progress_status', '!=', 'deleted')
+            ->select(
+                'progress_id',
+                'milestone_item_id as item_id',
+                'purpose',
+                'progress_status',
+                'submitted_at'
+            )
+            ->orderBy('submitted_at', 'desc')
             ->get();
+
+        $result = [];
+        foreach ($progressList as $progress) {
+            $files = DB::table('progress_files')
+                ->where('progress_id', $progress->progress_id)
+                ->select(
+                    'file_id',
+                    'progress_id',
+                    'file_path',
+                    'original_name',
+                    // 'uploaded_at',
+                    // 'updated_at'
+                )
+                // ->orderBy('uploaded_at', 'desc')
+                ->get();
+            
+            $progress->files = $files;
+            $result[] = $progress;
+        }
+
+        return $result;
     }
 
     public function getPaymentsByItem($itemId)
@@ -312,7 +340,6 @@ class disputeClass
             return ['valid' => false, 'message' => 'Project not found'];
         }
 
-        // Check if owner exists
         $ownerExists = DB::table('users')->where('user_id', $project->owner_id)->exists();
         if (!$ownerExists) {
             return [
@@ -321,7 +348,7 @@ class disputeClass
             ];
         }
 
-        // If may contractor yung project, double check if yung contractor gaexist
+        // If project has contractor, check if contractor user exists
         if ($project->contractor_id) {
             $contractorExists = DB::table('users')->where('user_id', $project->contractor_id)->exists();
             if (!$contractorExists) {
@@ -422,6 +449,7 @@ class disputeClass
             ->first();
 
         if ($file) {
+            // Delete file from storage
             if (Storage::disk('public')->exists($file->storage_path)) {
                 Storage::disk('public')->delete($file->storage_path);
             }
