@@ -124,12 +124,15 @@
     }
 </style>
 
-<div id="progressModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; padding:20px; overflow-y:auto;">
-    <div style="max-width:700px; margin:50px auto; background:white; padding:30px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <h2 style="margin-top:0;" id="progressModalTitle">Upload Progress</h2>
-
-        <div id="progressModalErrorMessages" class="error-messages" style="display:none;"></div>
-        <div id="progressModalSuccessMessages" class="success-messages" style="display:none;"></div>
+<div id="progressModal" class="modal">
+    <div class="modal-content" style="max-width:700px;">
+        <div class="modal-header">
+            <h2 id="progressModalTitle">Upload Progress</h2>
+            <span class="close" onclick="ProgressModal.close()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="progressModalErrorMessages" class="error-message" style="display:none;"></div>
+            <div id="progressModalSuccessMessages" class="success-message" style="display:none;"></div>
 
         <form id="progressModalForm" enctype="multipart/form-data">
             <input type="hidden" id="progress_item_id" name="item_id">
@@ -163,17 +166,18 @@
                         <button type="button" class="remove-file-btn" style="display:none;">Remove</button>
                     </div>
                 </div>
-                <button type="button" id="progress-add-more-files" style="display:none; margin-top:10px; background:#007bff; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">📎 Add More Files</button>
+                <button type="button" id="progress-add-more-files" style="display:none; margin-top:10px; background:#007bff; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">Add More Files</button>
                 <small>Accepted formats: JPG, JPEG, PNG, PDF, DOC, DOCX (Max 5MB each, up to 10 files)<br>
                 <em>Click "Add More Files" to select additional progress files one by one.</em></small>
             </div>
 
-            <div style="display:flex; gap:10px; margin-top:25px;">
-                <button type="submit" id="progressSubmitBtn" style="flex:1; background:#28a745; color:white; border:none; padding:12px; border-radius:4px; cursor:pointer; font-weight:600; font-size:15px;">
-                    <span id="progressSubmitBtnText">Upload Progress</span>
-                </button>
-                <button type="button" id="progressCancelBtn" style="flex:1; background:#6c757d; color:white; border:none; padding:12px; border-radius:4px; cursor:pointer; font-size:15px;">Cancel</button>
-            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" id="progressCancelBtn" class="btn btn-secondary" onclick="ProgressModal.close()">Cancel</button>
+            <button type="submit" id="progressSubmitBtn" class="btn btn-primary">
+                <span id="progressSubmitBtnText">Upload Progress</span>
+            </button>
+        </div>
         </form>
     </div>
 </div>

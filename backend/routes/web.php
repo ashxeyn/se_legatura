@@ -49,15 +49,14 @@ Route::get('/admin/dashboard', function() {
     return view('admin.dashboard');
 });
 
-Route::get('/dashboard', function() {
-    return view('both.dashboard');
-});
+Route::get('/dashboard', [\App\Http\Controllers\Owner\projectsController::class, 'showDashboard']);
 
 // Contractor Milestone Setup Routes
 Route::get('/contractor/milestone/setup', [cprocessController::class, 'showMilestoneSetupForm']);
 Route::post('/contractor/milestone/setup/step1', [cprocessController::class, 'milestoneStepOne']);
 Route::post('/contractor/milestone/setup/step2', [cprocessController::class, 'milestoneStepTwo']);
 Route::post('/contractor/milestone/setup/submit', [cprocessController::class, 'submitMilestone']);
+Route::post('/contractor/milestone/{milestoneId}/delete', [cprocessController::class, 'deleteMilestone']);
 
 // Role Management Routes for 'both' users
 Route::post('/api/role/switch', [cprocessController::class, 'switchRole']);
@@ -85,6 +84,28 @@ Route::post('/contractor/progress/upload', [\App\Http\Controllers\contractor\pro
 Route::get('/contractor/progress/files/{itemId}', [\App\Http\Controllers\contractor\progressUploadController::class, 'getProgressFiles']);
 Route::put('/contractor/progress/{progressId}', [\App\Http\Controllers\contractor\progressUploadController::class, 'updateProgress']);
 Route::delete('/contractor/progress/{progressId}', [\App\Http\Controllers\contractor\progressUploadController::class, 'deleteProgress']);
+// Owner payment validation routes
+Route::post('/owner/payment/upload', [\App\Http\Controllers\owner\paymentUploadController::class, 'uploadPayment']);
+Route::put('/owner/payment/{paymentId}', [\App\Http\Controllers\owner\paymentUploadController::class, 'updatePayment']);
+Route::delete('/owner/payment/{paymentId}', [\App\Http\Controllers\owner\paymentUploadController::class, 'deletePayment']);
+Route::post('/contractor/progress/approve/{progressId}', [\App\Http\Controllers\contractor\progressUploadController::class, 'approveProgress']);
+
+// Owner Project Posting Routes
+Route::get('/owner/projects/create', [\App\Http\Controllers\Owner\projectsController::class, 'showCreatePostPage']);
+Route::post('/owner/projects', [\App\Http\Controllers\Owner\projectsController::class, 'store']);
+Route::get('/owner/projects/{projectId}/edit', [\App\Http\Controllers\Owner\projectsController::class, 'showEditPostPage']);
+Route::put('/owner/projects/{projectId}', [\App\Http\Controllers\Owner\projectsController::class, 'update']);
+Route::delete('/owner/projects/{projectId}', [\App\Http\Controllers\Owner\projectsController::class, 'delete']);
+Route::post('/owner/projects/{projectId}/bids/{bidId}/accept', [\App\Http\Controllers\Owner\projectsController::class, 'acceptBid']);
+Route::post('/owner/milestones/{milestoneId}/approve', [disputeController::class, 'approveMilestone']);
+Route::post('/owner/milestones/{milestoneId}/reject', [disputeController::class, 'rejectMilestone']);
+Route::post('/contractor/payments/{paymentId}/approve', [disputeController::class, 'approvePayment']);
+
+// Contractor Bidding Routes
+Route::get('/contractor/projects/{projectId}', [\App\Http\Controllers\contractor\biddingController::class, 'showProjectOverview']);
+Route::post('/contractor/bids', [\App\Http\Controllers\contractor\biddingController::class, 'store']);
+Route::put('/contractor/bids/{bidId}', [\App\Http\Controllers\contractor\biddingController::class, 'update']);
+Route::post('/contractor/bids/{bidId}/cancel', [\App\Http\Controllers\contractor\biddingController::class, 'cancel']);
 
 
 

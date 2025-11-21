@@ -381,8 +381,31 @@ class disputeController extends Controller
             }
         }
         $userId = $user->user_id;
+        $currentRole = session('current_role', $user->user_type);
+        $userType = $user->user_type;
+
+        // Determine if user is contractor
+        $isContractor = ($userType === 'contractor' || $userType === 'both') && 
+                       ($currentRole === 'contractor');
 
         $projects = $this->disputeClass->getUserProjects($userId);
+
+        // For contractors, check milestone status for each project
+        if ($isContractor) {
+            $contractor = DB::table('contractors')->where('user_id', $userId)->first();
+            if ($contractor) {
+                $contractorClass = new \App\Models\contractor\contractorClass();
+                foreach ($projects as $project) {
+                    // Only check milestone status if project is bidding_closed and contractor is selected
+                    if ($project->project_status === 'bidding_closed' && isset($project->selected_contractor_id) && $project->selected_contractor_id == $contractor->contractor_id) {
+                        $hasMilestone = $contractorClass->contractorHasMilestoneForProject($project->project_id, $contractor->contractor_id);
+                        $project->milestone_status = $hasMilestone ? 'set_up' : 'not_set_up';
+                    } else {
+                        $project->milestone_status = null;
+                    }
+                }
+            }
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -394,7 +417,7 @@ class disputeController extends Controller
                 ]
             ], 200);
         } else {
-            return view('both.projects', compact('projects', 'userId'));
+            return view('both.projects', compact('projects', 'userId', 'isContractor'));
         }
     }
 
@@ -414,6 +437,10 @@ class disputeController extends Controller
         }
         $userId = $user->user_id;
 
+        // Get owner_id from property_owners table if user is owner
+        $owner = DB::table('property_owners')->where('user_id', $userId)->first();
+        $ownerId = $owner ? $owner->owner_id : null;
+
         // Get project details
         $project = $this->disputeClass->getProjectDetailsById($projectId);
 
@@ -429,7 +456,19 @@ class disputeController extends Controller
         }
 
         // Check if user has access to this project
-        if ($project->owner_id != $userId && $project->contractor_user_id != $userId) {
+        // owner_id from project could be from project_relationships (new schema) or direct from projects (legacy)
+        $hasOwnerAccess = false;
+        if ($ownerId && $project->owner_id) {
+            // Compare owner_id from property_owners table
+            $hasOwnerAccess = ($project->owner_id == $ownerId);
+        } else {
+            // Legacy: compare user_id directly
+            $hasOwnerAccess = ($project->owner_id == $userId);
+        }
+        
+        $hasContractorAccess = ($project->contractor_user_id == $userId);
+
+        if (!$hasOwnerAccess && !$hasContractorAccess) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -440,7 +479,7 @@ class disputeController extends Controller
             }
         }
 
-        // Get milestones and items
+        // Get milestones and items (exclude deleted milestones)
         $milestonesData = $this->disputeClass->getProjectMilestonesWithItems($projectId);
 
         // Group milestones and items
@@ -452,6 +491,8 @@ class disputeController extends Controller
                     'milestone_name' => $data->milestone_name,
                     'milestone_description' => $data->milestone_description,
                     'milestone_status' => $data->milestone_status,
+                    'setup_status' => $data->setup_status ?? null,
+                    'setup_rej_reason' => $data->setup_rej_reason ?? null,
                     'start_date' => $data->start_date,
                     'end_date' => $data->end_date,
                     'items' => []
@@ -474,8 +515,14 @@ class disputeController extends Controller
         }
 
         // Determine user role in project
-        $isOwner = $project->owner_id == $userId;
-        $isContractor = $project->contractor_user_id == $userId;
+        $isOwner = false;
+        if ($ownerId && $project->owner_id) {
+            $isOwner = ($project->owner_id == $ownerId);
+        } else {
+            // Legacy: compare user_id directly
+            $isOwner = ($project->owner_id == $userId);
+        }
+        $isContractor = ($project->contractor_user_id == $userId);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -494,7 +541,24 @@ class disputeController extends Controller
             // Get projects for the modal
             $projects = $this->disputeClass->getUserProjects($user->user_id);
 
-            return view('both.projectDetails', compact('project', 'milestones', 'isOwner', 'isContractor', 'projects'));
+            // Get bids for this project if user is owner
+            $bids = [];
+            if ($isOwner && $project->project_status === 'open') {
+                $projectsClass = new \App\Models\Owner\projectsClass();
+                $bids = $projectsClass->getProjectBids($projectId);
+            }
+
+            // Check if contractor can setup milestone (is selected contractor and no milestone exists)
+            $canSetupMilestone = false;
+            if ($isContractor && $project->selected_contractor_id) {
+                $contractor = DB::table('contractors')->where('user_id', $userId)->first();
+                if ($contractor && $contractor->contractor_id == $project->selected_contractor_id) {
+                    $contractorClass = new \App\Models\contractor\contractorClass();
+                    $canSetupMilestone = !$contractorClass->contractorHasMilestoneForProject($projectId, $contractor->contractor_id);
+                }
+            }
+
+            return view('both.projectDetails', compact('project', 'milestones', 'isOwner', 'isContractor', 'projects', 'bids', 'canSetupMilestone'));
         }
     }
 
@@ -770,6 +834,251 @@ class disputeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error deleting evidence file: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function approveMilestone(Request $request, $milestoneId)
+    {
+        $user = Session::get('user');
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated.'
+            ], 401);
+        }
+
+        // Get owner_id
+        $owner = DB::table('property_owners')->where('user_id', $user->user_id)->first();
+        if (!$owner) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Property owner profile not found.'
+            ], 404);
+        }
+
+        // Verify milestone belongs to owner's project
+        $milestone = DB::table('milestones as m')
+            ->join('projects as p', 'm.project_id', '=', 'p.project_id')
+            ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
+            ->where('m.milestone_id', $milestoneId)
+            ->select('m.*', 'pr.owner_id')
+            ->first();
+
+        if (!$milestone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Milestone not found.'
+            ], 404);
+        }
+
+        // Check if owner has access
+        $ownerId = $milestone->owner_id ?? null;
+        if (!$ownerId || $ownerId != $owner->owner_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to approve this milestone.'
+            ], 403);
+        }
+
+        // Check if milestone is in submitted status
+        if (isset($milestone->setup_status) && $milestone->setup_status !== 'submitted') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This milestone is not in submitted status.'
+            ], 400);
+        }
+
+        try {
+            DB::table('milestones')
+                ->where('milestone_id', $milestoneId)
+                ->update([
+                    'setup_status' => 'approved',
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Milestone approved successfully.'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while approving the milestone. Please try again.'
+            ], 500);
+        }
+    }
+
+    public function rejectMilestone(Request $request, $milestoneId)
+    {
+        $user = Session::get('user');
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated.'
+            ], 401);
+        }
+
+        // Validate rejection reason
+        $request->validate([
+            'rejection_reason' => 'required|string|max:500'
+        ], [
+            'rejection_reason.required' => 'Please provide a reason for rejection.',
+            'rejection_reason.max' => 'Rejection reason cannot exceed 500 characters.'
+        ]);
+
+        // Get owner_id
+        $owner = DB::table('property_owners')->where('user_id', $user->user_id)->first();
+        if (!$owner) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Property owner profile not found.'
+            ], 404);
+        }
+
+        // Verify milestone belongs to owner's project
+        $milestone = DB::table('milestones as m')
+            ->join('projects as p', 'm.project_id', '=', 'p.project_id')
+            ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
+            ->where('m.milestone_id', $milestoneId)
+            ->select('m.*', 'pr.owner_id')
+            ->first();
+
+        if (!$milestone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Milestone not found.'
+            ], 404);
+        }
+
+        // Check if owner has access
+        $ownerId = $milestone->owner_id ?? null;
+        if (!$ownerId || $ownerId != $owner->owner_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to reject this milestone.'
+            ], 403);
+        }
+
+        // Check if milestone is in submitted status
+        if (isset($milestone->setup_status) && $milestone->setup_status !== 'submitted') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This milestone is not in submitted status.'
+            ], 400);
+        }
+
+        try {
+            DB::table('milestones')
+                ->where('milestone_id', $milestoneId)
+                ->update([
+                    'setup_status' => 'rejected',
+                    'setup_rej_reason' => $request->input('rejection_reason'),
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Milestone rejected successfully.'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while rejecting the milestone. Please try again.'
+            ], 500);
+        }
+    }
+
+    public function approvePayment(Request $request, $paymentId)
+    {
+        $user = Session::get('user');
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated.'
+            ], 401);
+        }
+
+        // Only contractor can approve payment
+        if (!in_array($user->user_type, ['contractor', 'both'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only contractors can approve payments.'
+            ], 403);
+        }
+
+        if ($user->user_type === 'both') {
+            $currentRole = Session::get('current_role', 'contractor');
+            if ($currentRole !== 'contractor') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Please switch to contractor role to approve payments.'
+                ], 403);
+            }
+        }
+
+        // Get contractor_id
+        $contractor = DB::table('contractors')->where('user_id', $user->user_id)->first();
+        if (!$contractor) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Contractor profile not found.'
+            ], 404);
+        }
+
+        // Verify payment belongs to contractor's project
+        $payment = DB::table('milestone_payments as mp')
+            ->join('projects as p', 'mp.project_id', '=', 'p.project_id')
+            ->where('mp.payment_id', $paymentId)
+            ->select('mp.*', 'p.selected_contractor_id', 'mp.contractor_user_id')
+            ->first();
+
+        if (!$payment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment not found.'
+            ], 404);
+        }
+
+        // Check if contractor has access
+        $hasAccess = false;
+        if ($payment->contractor_user_id && $payment->contractor_user_id == $user->user_id) {
+            $hasAccess = true;
+        } else if ($payment->selected_contractor_id && $payment->selected_contractor_id == $contractor->contractor_id) {
+            $hasAccess = true;
+        }
+
+        if (!$hasAccess) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to approve this payment.'
+            ], 403);
+        }
+
+        // Check if payment is in submitted status
+        if ($payment->payment_status !== 'submitted') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This payment is not in submitted status.'
+            ], 400);
+        }
+
+        try {
+            DB::table('milestone_payments')
+                ->where('payment_id', $paymentId)
+                ->update([
+                    'payment_status' => 'approved',
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment approved successfully.'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while approving the payment. Please try again.'
             ], 500);
         }
     }

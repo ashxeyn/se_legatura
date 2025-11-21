@@ -48,12 +48,15 @@
     }
 </style>
 
-<div id="addEditDisputeModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; padding:20px; overflow-y:auto;">
-    <div style="max-width:700px; margin:50px auto; background:white; padding:30px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <h2 style="margin-top:0;" id="disputeModalTitle">File New Dispute</h2>
-
-        <div id="modalErrorMessages" class="error-messages" style="display:none;"></div>
-        <div id="modalSuccessMessages" class="success-messages" style="display:none;"></div>
+<div id="addEditDisputeModal" class="modal">
+    <div class="modal-content" style="max-width:700px;">
+        <div class="modal-header">
+            <h2 id="disputeModalTitle">File New Dispute</h2>
+            <span class="close" onclick="DisputeModal.close()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="modalErrorMessages" class="error-message" style="display:none;"></div>
+            <div id="modalSuccessMessages" class="success-message" style="display:none;"></div>
 
         <form id="disputeModalForm" enctype="multipart/form-data">
             <input type="hidden" id="modal_dispute_id" name="dispute_id">
@@ -119,15 +122,16 @@
                         <button type="button" class="remove-file-btn" style="display:none;">Remove</button>
                     </div>
                 </div>
-                <button type="button" id="modal-add-more-files" style="display:none;">📎 Add More Files</button>
+                <button type="button" id="modal-add-more-files" style="display:none;">Add More Files</button>
                 <small>Accepted formats: JPG, JPEG, PNG, PDF, DOC, DOCX (Max 5MB each, up to 10 files)<br>
                 <em>Click "Add More Files" to select additional evidence files one by one.</em></small>
             </div>
 
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button type="submit" id="modalSubmitBtn" style="flex:1; background:#28a745; color:white; border:none; padding:12px; border-radius:4px; cursor:pointer; font-weight:600;">Submit Dispute</button>
-                <button type="button" id="modalCancelBtn" style="flex:1; background:#6c757d; color:white; border:none; padding:12px; border-radius:4px; cursor:pointer;">Cancel</button>
-            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" id="modalCancelBtn" class="btn btn-secondary" onclick="DisputeModal.close()">Cancel</button>
+            <button type="submit" id="modalSubmitBtn" class="btn btn-primary">Submit Dispute</button>
+        </div>
         </form>
     </div>
 </div>

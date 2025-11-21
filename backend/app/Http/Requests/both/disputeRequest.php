@@ -35,9 +35,10 @@ class disputeRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     // Custom validation to ensure project has valid contractor and owner
                     $project = \DB::table('projects as p')
+                        ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
                         ->leftJoin('contractors as c', 'p.selected_contractor_id', '=', 'c.contractor_id')
                         ->where('p.project_id', $value)
-                        ->select('p.owner_id', 'c.user_id as contractor_user_id')
+                        ->select('pr.owner_id', 'c.user_id as contractor_user_id')
                         ->first();
 
                     if (!$project) {
@@ -45,9 +46,18 @@ class disputeRequest extends FormRequest
                         return;
                     }
 
-                    // Check if owner exists in users table
-                    if (!$project->owner_id || !\DB::table('users')->where('user_id', $project->owner_id)->exists()) {
-                        $fail('Project owner user not found.');
+                    // Check if owner exists (via property_owners table for new schema, or users table for legacy)
+                    if (!$project->owner_id) {
+                        $fail('Project owner not found.');
+                        return;
+                    }
+                    
+                    // For new schema, check property_owners table; for legacy, check users table
+                    $ownerExists = \DB::table('property_owners')->where('owner_id', $project->owner_id)->exists() ||
+                                   \DB::table('users')->where('user_id', $project->owner_id)->exists();
+                    
+                    if (!$ownerExists) {
+                        $fail('Project owner not found.');
                         return;
                     }
 

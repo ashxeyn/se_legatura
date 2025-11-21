@@ -33,17 +33,17 @@ class progressUploadClass
     public function createProgressFile($data)
     {
         try {
-            $fileId = DB::table('progress_files')->insertGetId([
+        $fileId = DB::table('progress_files')->insertGetId([
                 'progress_id' => $data['progress_id'],
-                'file_path' => $data['file_path'],
+            'file_path' => $data['file_path'],
                 'original_name' => $data['original_name'] ?? null
-            ]);
+        ]);
 
             if (!$fileId) {
                 throw new \Exception('Failed to create progress file entry in database');
             }
 
-            return $fileId;
+        return $fileId;
         } catch (\Exception $e) {
             Log::error('createProgressFile error: ' . $e->getMessage(), [
                 'data' => $data,
@@ -175,7 +175,7 @@ class progressUploadClass
         if (!empty($updateData)) {
             return DB::table('progress')
                 ->where('progress_id', $progressId)
-                ->update($updateData);
+            ->update($updateData);
         }
 
         return false;

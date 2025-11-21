@@ -28,7 +28,7 @@ if (typeof window.DisputeModal === 'undefined') {
                     // Create file name display div
                     const fileNameDisplay = document.createElement('div');
                     fileNameDisplay.className = 'file-name-display visible';
-                    fileNameDisplay.textContent = '📄 ' + tempInput.files[0].name;
+                    fileNameDisplay.textContent = tempInput.files[0].name;
 
                     const newInput = document.createElement('input');
                     newInput.type = 'file';
@@ -84,7 +84,7 @@ if (typeof window.DisputeModal === 'undefined') {
                     fileGroup.insertBefore(fileNameDisplay, input);
                 }
 
-                fileNameDisplay.textContent = '📄 ' + input.files[0].name;
+                fileNameDisplay.textContent = input.files[0].name;
                 fileNameDisplay.classList.add('visible');
 
                 const removeBtn = fileGroup.querySelector('.remove-file-btn');
@@ -265,7 +265,7 @@ if (typeof window.DisputeModal === 'undefined') {
             `;
             document.getElementById('modal-add-more-files').style.display = 'none';
 
-            modal.style.display = 'block';
+            modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         },
 
@@ -768,6 +768,207 @@ if (typeof window.DisputeCancel === 'undefined') {
     };
 }
 
+// ========== PAYMENT MODAL ==========
+
+if (typeof window.PaymentModal === 'undefined') {
+    window.PaymentModal = {
+        paymentId: null,
+
+        open: function(mode = 'add', paymentData = null) {
+            const modal = document.getElementById('paymentModal');
+            const title = document.getElementById('paymentModalTitle');
+            const form = document.getElementById('paymentModalForm');
+            const isEditInput = document.getElementById('payment_is_edit');
+
+            // reset
+            form.reset();
+            document.getElementById('paymentModalErrorMessages').style.display = 'none';
+            document.getElementById('paymentModalSuccessMessages').style.display = 'none';
+            document.getElementById('payment_id').value = '';
+            isEditInput.value = '0';
+
+            if (mode === 'edit' && paymentData) {
+                title.textContent = 'Edit Payment Validation';
+                document.getElementById('payment_id').value = paymentData.payment_id || '';
+                isEditInput.value = '1';
+                document.getElementById('payment_item_id').value = paymentData.item_id || '';
+                document.getElementById('payment_project_id').value = paymentData.project_id || '';
+                document.getElementById('payment_item_title').textContent = paymentData.item_title || '';
+                document.getElementById('payment_amount').value = paymentData.amount || '';
+                document.getElementById('payment_type').value = paymentData.payment_type || '';
+                document.getElementById('transaction_number').value = paymentData.transaction_number || '';
+                if (paymentData.transaction_date) {
+                    // set date-only (YYYY-MM-DD)
+                    const dateVal = paymentData.transaction_date.toString().slice(0,10);
+                    document.getElementById('transaction_date').value = dateVal;
+                }
+                if (paymentData.receipt_photo) {
+                    // show existing receipt area (not implemented: keep simple)
+                }
+            } else {
+                title.textContent = 'Upload Payment Validation';
+                if (paymentData) {
+                    document.getElementById('payment_item_id').value = paymentData.item_id || '';
+                    document.getElementById('payment_project_id').value = paymentData.project_id || '';
+                    document.getElementById('payment_item_title').textContent = paymentData.item_title || '';
+                }
+            }
+
+            // reset file input container; include existing receipt section and a single file input
+            const fileContainer = document.getElementById('payment-file-upload-container');
+            const isEdit = isEditInput.value === '1';
+            
+            // When editing, don't show "choose file again" button - only show file input for adding another file
+            // When adding, show the file input normally (which acts as "choose file")
+            if (isEdit) {
+                // Edit mode: show existing receipt link but hide "choose file again" button
+                fileContainer.innerHTML = `
+                    <div id="existingReceiptSection" style="display:none; margin-bottom:8px;">
+                        <div id="existingReceiptLink" style="margin-bottom:6px;"></div>
+                    </div>
+                    <div class="file-input-group">
+                        <input type="file" name="receipt_photo" accept=".jpg,.jpeg,.png,.pdf" class="evidence-file-input">
+                    </div>
+                `;
+            } else {
+                // Add mode: show file input normally (acts as "choose file")
+                fileContainer.innerHTML = `
+                    <div id="existingReceiptSection" style="display:none; margin-bottom:8px;">
+                        <div id="existingReceiptLink" style="margin-bottom:6px;"></div>
+                        <button type="button" id="chooseFileAgainBtn" class="btn-secondary">Choose file again</button>
+                    </div>
+                    <div class="file-input-group">
+                        <input type="file" name="receipt_photo" accept=".jpg,.jpeg,.png,.pdf" class="evidence-file-input">
+                    </div>
+                `;
+            }
+
+            // attach file input handler using DisputeModal helper
+            const newFileInput = fileContainer.querySelector('.evidence-file-input');
+            const chooseFileBtn = document.getElementById('chooseFileAgainBtn');
+            const existingSection = document.getElementById('existingReceiptSection');
+
+            // Only attach "choose file again" button handler if it exists (i.e., in add mode)
+            if (chooseFileBtn) {
+                chooseFileBtn.addEventListener('click', function() {
+                    // trigger file input to allow user to pick a new file
+                    if (newFileInput) newFileInput.click();
+                });
+            }
+
+            if (newFileInput) {
+                newFileInput.addEventListener('change', function() {
+                    // when user chooses a new file, show the chosen filename in the existingReceiptLink area
+                    const linkDiv = document.getElementById('existingReceiptLink');
+                    if (this.files && this.files.length > 0) {
+                        const f = this.files[0];
+                        if (linkDiv) {
+                            // show filename (not a storage link) to indicate a newly selected file
+                            linkDiv.innerHTML = `<span>Selected file: ${f.name}</span>`;
+                        }
+                        if (existingSection) existingSection.style.display = 'block';
+                        // show file name and remove button via existing helper
+                        window.DisputeModal.handleFileSelection(this, 'payment-file-upload-container', '');
+                    } else {
+                        if (linkDiv) linkDiv.innerHTML = '';
+                        if (existingSection) existingSection.style.display = 'none';
+                    }
+                });
+            }
+
+            // If we're in edit mode and paymentData has an existing receipt, show it
+            if (isEdit && typeof paymentData !== 'undefined' && paymentData && paymentData.receipt_photo) {
+                const linkDiv = document.getElementById('existingReceiptLink');
+                if (linkDiv) {
+                    const url = '/storage/' + paymentData.receipt_photo;
+                    linkDiv.innerHTML = `<a href="${url}" target="_blank">View current receipt</a>`;
+                }
+                if (existingSection) existingSection.style.display = 'block';
+            }
+
+            // attach cancel
+            const cancelBtn = document.getElementById('paymentCancelBtn');
+            if (cancelBtn) {
+                cancelBtn.onclick = function() { window.PaymentModal.close(); };
+            }
+
+            // attach submit handler once
+            if (!form._payment_handler_attached) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const fd = new FormData(form);
+                    const isEdit = document.getElementById('payment_is_edit').value === '1';
+                    let url = '/owner/payment/upload';
+                    let method = 'POST';
+                    const headers = {
+                        'X-CSRF-TOKEN': getCsrfToken(),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    };
+
+                    if (isEdit) {
+                        const pid = document.getElementById('payment_id').value;
+                        url = `/owner/payment/${pid}`;
+                        // use POST with _method override or send PUT via fetch with FormData - using POST with override
+                        fd.append('_method', 'PUT');
+                    }
+
+                    fetch(url, {
+                        method: 'POST',
+                        headers: headers,
+                        body: fd
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        const errDiv = document.getElementById('paymentModalErrorMessages');
+                        const successDiv = document.getElementById('paymentModalSuccessMessages');
+                        errDiv.style.display = 'none'; successDiv.style.display = 'none';
+                        if (res.success) {
+                            successDiv.innerHTML = '<p>' + (res.message || 'Payment saved') + '</p>';
+                            successDiv.style.display = 'block';
+                            setTimeout(() => { window.PaymentModal.close(); location.reload(); }, 1000);
+                        } else {
+                            errDiv.innerHTML = res.message || 'Error saving payment';
+                            errDiv.style.display = 'block';
+                        }
+                    })
+                    .catch(err => {
+                        const errDiv = document.getElementById('paymentModalErrorMessages');
+                        errDiv.innerHTML = 'An error occurred';
+                        errDiv.style.display = 'block';
+                        console.error('Payment submit error', err);
+                    });
+                });
+                form._payment_handler_attached = true;
+            }
+
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        },
+
+        close: function() {
+            const modal = document.getElementById('paymentModal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        }
+    };
+}
+
+if (typeof window.PaymentDelete === 'undefined') {
+    window.PaymentDelete = {
+        paymentToDelete: null,
+        open: function(paymentId) { this.paymentToDelete = paymentId; const modal = document.getElementById('deletePaymentModal'); if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; } },
+        close: function() { const modal = document.getElementById('deletePaymentModal'); if (modal) { modal.style.display = 'none'; document.body.style.overflow = 'auto'; } this.paymentToDelete = null; },
+        confirm: function() {
+            if (!this.paymentToDelete) return;
+            const pid = this.paymentToDelete; this.close();
+            fetch(`/owner/payment/${pid}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': getCsrfToken(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json()).then(res => { if (res.success) { alert(res.message || 'Deleted'); setTimeout(() => location.reload(), 700); } else { alert(res.message || 'Error deleting'); } }).catch(err => { console.error(err); alert('Error deleting payment'); });
+        }
+    };
+}
+
 // ========== BACKWARD COMPATIBILITY ALIASES ==========
 // For existing code that uses these function names
 
@@ -951,7 +1152,7 @@ if (typeof window.ProgressModal === 'undefined') {
                         const li = document.createElement('li');
                         li.id = 'progress-file-' + file.file_id;
                         li.innerHTML = `
-                            <span>📄 ${file.original_name || file.file_path.split('/').pop()}</span>
+                            <span> ${file.original_name || file.file_path.split('/').pop()}</span>
                             <button type="button" onclick="ProgressModal.markFileForRemoval(${file.file_id})">Remove</button>
                         `;
                         filesList.appendChild(li);
@@ -1011,7 +1212,7 @@ if (typeof window.ProgressModal === 'undefined') {
                 });
             }
 
-            modal.style.display = 'block';
+            modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         },
 
@@ -1065,11 +1266,69 @@ if (typeof window.ProgressModal === 'undefined') {
         },
 
         removeFileInput: function(button) {
-            window.DisputeModal.removeFileInput(button, 'progress-file-upload-container', 'progress-add-more-files');
+            window.DisputeModal.removeFileInput(button, 'progress-file-upload-container', 'progress-add_more-files');
         },
 
         addMoreFiles: function() {
             window.DisputeModal.addMoreFiles('progress-file-upload-container', 'progress-add-more-files');
+        }
+    };
+}
+
+if (typeof window.ProgressApprove === 'undefined') {
+    window.ProgressApprove = {
+        progressToApprove: null,
+
+        // Open approve modal
+        open: function(progressId) {
+            this.progressToApprove = progressId;
+            const modal = document.getElementById('approveProgressModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        },
+
+        // Close approve modal
+        close: function() {
+            const modal = document.getElementById('approveProgressModal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+            this.progressToApprove = null;
+        },
+
+        // Confirm approve progress
+        confirm: function() {
+            if (!this.progressToApprove) return;
+
+            const progressId = this.progressToApprove;
+            this.close();
+
+            fetch(`/contractor/progress/approve/${progressId}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ progress_id: progressId })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert(result.message || 'Progress report approved successfully');
+                    setTimeout(() => { location.reload(); }, 1000);
+                } else {
+                    alert(result.message || 'Error approving progress report');
+                }
+            })
+            .catch(error => {
+                console.error('Approve error:', error);
+                alert('An error occurred while approving the progress report.');
+            });
         }
     };
 }

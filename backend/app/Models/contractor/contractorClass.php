@@ -41,24 +41,52 @@ class contractorClass
 			->exists();
 	}
 
-	public function getContractorProjects($contractorId)
+	public function getContractorProjects($contractorId, $excludeMilestoneId = null)
 	{
-		return DB::table('projects as p')
+		$query = DB::table('projects as p')
 			->select(
 				'p.project_id',
 				'p.project_title',
 				'p.project_description',
 				'p.project_status'
 			)
-			->where('p.selected_contractor_id', $contractorId)
-			->whereNotExists(function ($query) use ($contractorId) {
-				$query->select(DB::raw(1))
+			->where('p.selected_contractor_id', $contractorId);
+		
+		// If editing a milestone, include projects with that milestone
+		// Otherwise, exclude projects that already have milestones
+		if ($excludeMilestoneId) {
+			$query->where(function($q) use ($contractorId, $excludeMilestoneId) {
+				$q->whereNotExists(function ($subQuery) use ($contractorId) {
+					$subQuery->select(DB::raw(1))
+						->from('milestones')
+						->whereColumn('milestones.project_id', 'p.project_id')
+						->where('milestones.contractor_id', $contractorId)
+						->where(function($mQuery) {
+							$mQuery->where('milestones.is_deleted', 0)
+								   ->orWhereNull('milestones.is_deleted');
+						});
+				})
+				->orWhereExists(function ($subQuery) use ($excludeMilestoneId) {
+					$subQuery->select(DB::raw(1))
+						->from('milestones')
+						->whereColumn('milestones.project_id', 'p.project_id')
+						->where('milestones.milestone_id', $excludeMilestoneId);
+				});
+			});
+		} else {
+			$query->whereNotExists(function ($subQuery) use ($contractorId) {
+				$subQuery->select(DB::raw(1))
 					->from('milestones')
 					->whereColumn('milestones.project_id', 'p.project_id')
-					->where('milestones.contractor_id', $contractorId);
-			})
-			->orderBy('p.project_title')
-			->get();
+					->where('milestones.contractor_id', $contractorId)
+					->where(function($mQuery) {
+						$mQuery->where('milestones.is_deleted', 0)
+							   ->orWhereNull('milestones.is_deleted');
+					});
+			});
+		}
+		
+		return $query->orderBy('p.project_title')->get();
 	}
 
 	public function contractorHasMilestoneForProject($projectId, $contractorId)
@@ -66,6 +94,15 @@ class contractorClass
 		return DB::table('milestones')
 			->where('project_id', $projectId)
 			->where('contractor_id', $contractorId)
+			->where(function($query) {
+				$query->where('is_deleted', 0)
+					  ->orWhereNull('is_deleted');
+			})
+			->where(function($query) {
+				// Exclude rejected milestones (contractor can resubmit after rejection)
+				$query->whereNull('setup_status')
+					  ->orWhere('setup_status', '!=', 'rejected');
+			})
 			->exists();
 	}
 
@@ -87,7 +124,7 @@ class contractorClass
 
 	public function createMilestone($data)
 	{
-		return DB::table('milestones')->insertGetId([
+		$insertData = [
 			'project_id' => $data['project_id'],
 			'contractor_id' => $data['contractor_id'],
 			'plan_id' => $data['plan_id'],
@@ -97,7 +134,14 @@ class contractorClass
 			'end_date' => $data['end_date'],
 			'created_at' => now(),
 			'updated_at' => now()
-		]);
+		];
+		
+		// Add setup_status if provided
+		if (isset($data['setup_status'])) {
+			$insertData['setup_status'] = $data['setup_status'];
+		}
+		
+		return DB::table('milestones')->insertGetId($insertData);
 	}
 
 	public function createMilestoneItem($data)
@@ -111,6 +155,58 @@ class contractorClass
 			'milestone_item_cost' => $data['milestone_item_cost'],
 			'date_to_finish' => $data['date_to_finish']
 		]);
+	}
+
+	public function getMilestoneById($milestoneId, $contractorId)
+	{
+		return DB::table('milestones as m')
+			->join('payment_plans as pp', 'm.plan_id', '=', 'pp.plan_id')
+			->where('m.milestone_id', $milestoneId)
+			->where('m.contractor_id', $contractorId)
+			->select(
+				'm.milestone_id',
+				'm.project_id',
+				'm.contractor_id',
+				'm.plan_id',
+				'm.milestone_name',
+				'm.milestone_description',
+				'm.milestone_status',
+				'm.start_date',
+				'm.end_date',
+				'pp.payment_mode',
+				'pp.total_project_cost',
+				'pp.downpayment_amount'
+			)
+			->first();
+	}
+
+	public function getMilestoneItems($milestoneId)
+	{
+		return DB::table('milestone_items')
+			->where('milestone_id', $milestoneId)
+			->orderBy('sequence_order')
+			->get();
+	}
+
+	public function updateMilestone($milestoneId, $data)
+	{
+		return DB::table('milestones')
+			->where('milestone_id', $milestoneId)
+			->update($data);
+	}
+
+	public function deleteMilestoneItems($milestoneId)
+	{
+		return DB::table('milestone_items')
+			->where('milestone_id', $milestoneId)
+			->delete();
+	}
+
+	public function updatePaymentPlan($planId, $data)
+	{
+		return DB::table('payment_plans')
+			->where('plan_id', $planId)
+			->update($data);
 	}
 
 }

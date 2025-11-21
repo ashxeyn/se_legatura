@@ -5,49 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $project->project_title }} - Project Details</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="stylesheet" href="{{ asset('css/common.css') }}">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f8f9fa;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        .nav-links {
-            background: #007bff;
-            color: white;
-            padding: 15px 20px;
-            border-bottom: 1px solid #0056b3;
-        }
-
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            margin-right: 15px;
-            font-weight: 500;
-            transition: opacity 0.2s;
-        }
-
-        .nav-links a:hover {
-            opacity: 0.8;
-            text-decoration: underline;
-        }
 
         .project-header {
             padding: 30px 20px;
@@ -267,34 +226,194 @@
 </head>
 <body>
     <div class="container">
+        <div class="header">
+            <h1>{{ $project->project_title }}</h1>
         <div class="nav-links">
-            <a href="/both/projects">Back</a> |
-            <a href="/both/disputes">Disputes</a> |
+                <a href="/both/projects">My Projects</a>
+                <a href="/both/disputes">Disputes</a>
             <a href="/dashboard">Dashboard</a>
+            </div>
         </div>
 
-        <div class="project-header">
-            <h1>
-                {{ $project->project_title }}
-                <span class="project-status status-{{ $project->project_status }}">
-                    {{ ucfirst(str_replace('_', ' ', $project->project_status)) }}
-                </span>
-            </h1>
-            <p><strong>Description:</strong> {{ $project->project_description }}</p>
-            <p><strong>Location:</strong> {{ $project->project_location }}</p>
-            <p><strong>Property Type:</strong> {{ $project->property_type }}</p>
-                <p><strong>Owner:</strong> {{ $project->owner_name }}</p>
+        <div class="card">
+            <div style="margin-bottom: 20px;">
+                <h2 style="font-size: 24px; margin-bottom: 15px; color: #1c1e21;">{{ $project->project_title }}</h2>
+                <p style="margin-bottom: 10px; color: #65676b;"><strong>Description:</strong> {{ $project->project_description }}</p>
+                <p style="margin-bottom: 10px; color: #65676b;"><strong>Location:</strong> {{ $project->project_location }}</p>
+                <p style="margin-bottom: 10px; color: #65676b;"><strong>Property Type:</strong> {{ $project->property_type }}</p>
+                <p style="margin-bottom: 10px; color: #65676b;"><strong>Owner:</strong> {{ $project->owner_name }}</p>
+            </div>
         </div>
 
-        <h2>Project Milestones</h2>
+        @if($isOwner && $project->project_status === 'open')
+            <div class="card">
+                <h2 style="font-size: 20px; margin-bottom: 15px; color: #1c1e21; border-bottom: 2px solid #e4e6eb; padding-bottom: 10px;">Project Bids</h2>
+                @if(isset($bids) && count($bids) > 0)
+                    <p style="margin-bottom: 20px; color: #65676b;">Review and select a contractor for this project.</p>
+                
+                <div style="display: grid; gap: 15px;">
+                    @foreach($bids as $bid)
+                        <div class="bid-item" style="border: 1px solid #e4e6eb; border-radius: 8px; padding: 20px; background: #f8f9fa;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                                <div>
+                                    <h3 style="font-size: 18px; margin-bottom: 5px; color: #1c1e21;">{{ $bid->company_name }}</h3>
+                                    <p style="color: #65676b; font-size: 14px; margin-bottom: 5px;">
+                                        {{ $bid->years_of_experience }} years experience | {{ $bid->completed_projects }} completed projects
+                                    </p>
+                                    <p style="color: #8a8d91; font-size: 12px;">
+                                        Submitted: {{ date('M d, Y h:i A', strtotime($bid->submitted_at)) }}
+                                    </p>
+                                </div>
+                                <span class="status-badge status-{{ $bid->bid_status }}">
+                                    {{ ucfirst(str_replace('_', ' ', $bid->bid_status)) }}
+                                </span>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; padding: 15px; background: white; border-radius: 6px;">
+                                <div>
+                                    <strong style="color: #65676b; display: block; margin-bottom: 5px;">Proposed Cost:</strong>
+                                    <span style="font-size: 18px; color: #1c1e21; font-weight: 600;">₱{{ number_format($bid->proposed_cost, 2) }}</span>
+                                </div>
+                                <div>
+                                    <strong style="color: #65676b; display: block; margin-bottom: 5px;">Estimated Timeline:</strong>
+                                    <span style="font-size: 18px; color: #1c1e21; font-weight: 600;">{{ $bid->estimated_timeline }} months</span>
+                                </div>
+                                @if($bid->contractor_notes)
+                                    <div style="grid-column: 1 / -1;">
+                                        <strong style="color: #65676b; display: block; margin-bottom: 5px;">Notes:</strong>
+                                        <p style="color: #1c1e21;">{{ $bid->contractor_notes }}</p>
+                                    </div>
+                                @endif
+                            </div>
+
+                            @if(isset($bid->files) && count($bid->files) > 0)
+                                <div style="margin-bottom: 15px;">
+                                    <strong style="color: #65676b; display: block; margin-bottom: 10px;">Bid Files:</strong>
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        @foreach($bid->files as $file)
+                                            <div style="padding: 8px; background: white; border-radius: 6px; border: 1px solid #e4e6eb;">
+                                                <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank" style="color: #1877f2; text-decoration: none; font-size: 14px;">
+                                                    📎 {{ $file->file_name }}
+                                                </a>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @elseif($bid->file_count > 0)
+                                <div style="margin-bottom: 15px;">
+                                    <strong style="color: #65676b; display: block; margin-bottom: 5px;">Bid Files:</strong>
+                                    <p style="color: #1c1e21; font-size: 14px;">{{ $bid->file_count }} file(s) attached</p>
+                                </div>
+                            @endif
+
+                            @if($bid->bid_status === 'submitted' || $bid->bid_status === 'under_review')
+                                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                    <button onclick="AcceptBidModal.open({{ $bid->bid_id }}, '{{ addslashes($bid->company_name) }}', {{ $bid->proposed_cost }}, {{ $project->project_id }})" 
+                                            class="btn btn-primary">Select This Contractor</button>
+                                </div>
+                            @elseif($bid->bid_status === 'accepted')
+                                <div style="margin-top: 15px; padding: 10px; background: #d4edda; border-radius: 6px; color: #155724;">
+                                    <strong>✓ Selected Contractor</strong>
+                                    @if($bid->decision_date)
+                                        <p style="margin: 5px 0 0 0; font-size: 12px;">Accepted on: {{ date('M d, Y h:i A', strtotime($bid->decision_date)) }}</p>
+                                    @endif
+                                </div>
+                            @elseif($bid->bid_status === 'rejected')
+                                <div style="margin-top: 15px; padding: 10px; background: #f8d7da; border-radius: 6px; color: #721c24;">
+                                    <strong>Rejected</strong>
+                                    @if($bid->decision_date)
+                                        <p style="margin: 5px 0 0 0; font-size: 12px;">Rejected on: {{ date('M d, Y h:i A', strtotime($bid->decision_date)) }}</p>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="empty-state">
+                        <h3>No Bids Yet</h3>
+                        <p>No contractors have submitted bids for this project yet. Check back later.</p>
+                    </div>
+                @endif
+            </div>
+        @elseif($isOwner && $project->project_status === 'bidding_closed' && $project->selected_contractor_id)
+            <div class="card">
+                <h2 style="font-size: 20px; margin-bottom: 15px; color: #1c1e21; border-bottom: 2px solid #e4e6eb; padding-bottom: 10px;">Selected Contractor</h2>
+                <div style="padding: 15px; background: #d4edda; border-radius: 6px; color: #155724;">
+                    <p style="margin-bottom: 10px;"><strong>Bidding Closed</strong></p>
+                    <p style="margin: 0;">A contractor has been selected for this project. Bidding is now closed.</p>
+                </div>
+            </div>
+        @endif
+
+        @if($isContractor && isset($canSetupMilestone) && $canSetupMilestone)
+            <div class="card">
+                <h2 style="font-size: 20px; margin-bottom: 15px; color: #1c1e21; border-bottom: 2px solid #e4e6eb; padding-bottom: 10px;">Milestone Setup</h2>
+                <div style="padding: 15px; background: #fff3cd; border-radius: 6px; color: #856404; margin-bottom: 15px;">
+                    <p style="margin-bottom: 10px;"><strong>No milestone has been set up for this project yet.</strong></p>
+                    <p style="margin: 0 0 15px 0;">Set up the milestones to define the project timeline and payment schedule.</p>
+                    <a href="/contractor/milestone/setup?project_id={{ $project->project_id }}" class="btn btn-primary">Setup Milestone</a>
+                </div>
+            </div>
+        @endif
+
+        @if(!$isOwner || ($isOwner && $project->project_status === 'bidding_closed' && $project->selected_contractor_id))
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #e4e6eb; padding-bottom: 10px;">
+                    <h2 style="font-size: 20px; margin: 0; color: #1c1e21;">Project Milestones</h2>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        @if($isContractor)
+                            @if(count($milestones) > 0)
+                                @php
+                                    $firstMilestone = reset($milestones);
+                                    $firstMilestoneId = $firstMilestone['milestone_id'] ?? null;
+                                @endphp
+                                @if($firstMilestoneId)
+                                    <a href="/contractor/milestone/setup?project_id={{ $project->project_id }}&milestone_id={{ $firstMilestoneId }}" class="btn btn-primary" style="padding: 6px 12px; font-size: 14px; text-decoration: none;">Edit Milestone</a>
+                                    <button type="button" onclick="openDeleteMilestoneModal({{ $firstMilestoneId }})" class="btn btn-danger" style="padding: 6px 12px; font-size: 14px;">Delete Milestone</button>
+                                @endif
+                            @elseif(isset($canSetupMilestone) && $canSetupMilestone)
+                                <span class="status-badge status-milestone-not-setup">Milestone Not Set Up Yet</span>
+                            @endif
+                        @endif
+                    </div>
+                </div>
 
         @if(count($milestones) > 0)
             @foreach($milestones as $milestone)
                 <div class="milestone-container">
                     <div class="milestone-header">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
                         <h3 style="margin: 0;">{{ $milestone['milestone_name'] }}</h3>
                         <p style="margin: 5px 0 0 0;">{{ $milestone['milestone_description'] }}</p>
                         <small>Status: {{ ucfirst(str_replace('_', ' ', $milestone['milestone_status'])) }} | {{ date('M d, Y', strtotime($milestone['start_date'])) }} - {{ date('M d, Y', strtotime($milestone['end_date'])) }}</small>
+                                @if(isset($milestone['setup_status']))
+                                    @if($milestone['setup_status'] === 'submitted')
+                                        <div style="margin-top: 10px;">
+                                            <span class="status-badge" style="background-color: #fff3cd; color: #856404;">Pending Approval</span>
+                                        </div>
+                                    @elseif($milestone['setup_status'] === 'approved')
+                                        <div style="margin-top: 10px;">
+                                            <span class="status-badge" style="background-color: #d4edda; color: #155724;">Approved</span>
+                                        </div>
+                                    @elseif($milestone['setup_status'] === 'rejected')
+                                        <div style="margin-top: 10px;">
+                                            <span class="status-badge" style="background-color: #f8d7da; color: #721c24;">Rejected</span>
+                                            @if(isset($milestone['setup_rej_reason']) && !empty($milestone['setup_rej_reason']))
+                                                <p style="margin-top: 5px; color: #721c24; font-size: 13px;"><strong>Reason:</strong> {{ $milestone['setup_rej_reason'] }}</p>
+                                            @endif
+                                        </div>
+                                    @endif
+                                @endif
+                            </div>
+                            @if($isOwner && isset($milestone['setup_status']) && $milestone['setup_status'] === 'submitted')
+                                <div style="display: flex; gap: 10px; margin-left: 15px;">
+                                    <button type="button" onclick="openApproveMilestoneModal({{ $milestone['milestone_id'] }})" class="btn btn-primary" style="padding: 6px 12px; font-size: 14px;">Approve</button>
+                                    <button type="button" onclick="openRejectMilestoneModal({{ $milestone['milestone_id'] }})" class="btn btn-danger" style="padding: 6px 12px; font-size: 14px;">Reject</button>
+                                </div>
+                            @endif
+                        </div>
                     </div>
 
                     @if(count($milestone['items']) > 0)
@@ -306,130 +425,188 @@
                                 <p><small>Due: {{ date('M d, Y', strtotime($item['date_to_finish'])) }}</small></p>
 
                                 @if($isOwner)
-                                    <h5>Progress Reports:</h5>
-                                    @if(count($item['progress_files']) > 0)
-                                        @foreach($item['progress_files'] as $progress)
-                                            <div class="file-item">
-                                                <strong>Purpose: {{ $progress->purpose }}</strong>
-                                                <span class="file-status status-{{ $progress->progress_status }}">
-                                                    {{ ucfirst(str_replace('_', ' ', $progress->progress_status)) }}
-                                                </span>
-                                                <p><small>Submitted: {{ date('M d, Y h:i A', strtotime($progress->submitted_at)) }}</small></p>
-                                                
-                                                @if(isset($progress->files) && count($progress->files) > 0)
-                                                    <p><strong>Files:</strong></p>
-                                                    <ul>
-                                                        @foreach($progress->files as $file)
-                                                            <li>
-                                                                <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
-                                                                    {{ $file->original_name ?? basename($file->file_path) }}
-                                                                </a>
-                                                            </li>
-                                                        @endforeach
-                                                    </ul>
-                                                @endif
+                                    @if(isset($milestone['setup_status']) && $milestone['setup_status'] === 'approved')
+                                        <h5>Progress Reports:</h5>
+                                        @if(count($item['progress_files']) > 0)
+                                            @foreach($item['progress_files'] as $progress)
+                                                <div class="file-item">
+                                                    <strong>Purpose: {{ $progress->purpose }}</strong>
+                                                    <span class="file-status status-{{ $progress->progress_status }}">
+                                                        {{ ucfirst(str_replace('_', ' ', $progress->progress_status)) }}
+                                                    </span>
+                                                    <p><small>Submitted: {{ date('M d, Y h:i A', strtotime($progress->submitted_at)) }}</small></p>
 
-                                                @if($progress->progress_status == 'submitted' || $progress->progress_status == 'under_review')
-                                                    <button class="btn btn-success" onclick="approveProgress({{ $progress->progress_id }})">Approve</button>
-                                                    <button class="btn btn-danger" onclick="rejectProgress({{ $progress->progress_id }}, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">Reject / File Dispute</button>
-                                                @endif
-                                            </div>
-                                        @endforeach
-                                    @else
-                                        <div class="empty-state">No progress reports uploaded yet.</div>
-                                    @endif
-                                @else
-                                    @php
-                                        $canUpload = true;
-                                        $hasNeedsRevision = false;
-                                        if (count($item['progress_files']) > 0) {
-                                            foreach ($item['progress_files'] as $progress) {
-                                                // Allow upload if status is needs_revision or deleted
-                                                if (!in_array($progress->progress_status, ['needs_revision', 'deleted'])) {
-                                                    $canUpload = false;
-                                                }
-                                                if ($progress->progress_status === 'needs_revision') {
-                                                    $hasNeedsRevision = true;
+                                                    @if(isset($progress->files) && count($progress->files) > 0)
+                                                        <p><strong>Files:</strong></p>
+                                                        <ul>
+                                                            @foreach($progress->files as $file)
+                                                                <li>
+                                                                    <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
+                                                                        {{ $file->original_name ?? basename($file->file_path) }}
+                                                                    </a>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    @endif
+
+                                                    @if($progress->progress_status == 'submitted' || $progress->progress_status == 'under_review')
+                                                        <button class="btn btn-success" onclick="ProgressApprove.open({{ $progress->progress_id }})">Approve</button>
+                                                        <button class="btn btn-danger" onclick="rejectProgress({{ $progress->progress_id }}, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">Reject / File Dispute</button>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        @else
+                                            <div class="empty-state">No progress reports uploaded yet.</div>
+                                        @endif
+
+                                        <h5 style="margin-top:12px;">Payment Validations:</h5>
+                                        @php
+                                            $canUploadPayment = true;
+                                            if (isset($item['payments']) && count($item['payments']) > 0) {
+                                                foreach ($item['payments'] as $p) {
+                                                    if (!in_array($p->payment_status ?? 'submitted', ['rejected', 'deleted'])) {
+                                                        $canUploadPayment = false;
+                                                        break;
+                                                    }
                                                 }
                                             }
-                                        }
-                                    @endphp
+                                        @endphp
+                                        <div style="margin-bottom:10px;">
+                                            @if($canUploadPayment)
+                                                <button class="btn btn-primary" onclick="PaymentModal.open('add', { item_id: {{ $item['item_id'] }}, project_id: {{ $project->project_id }}, item_title: '{{ addslashes($item['milestone_item_title']) }}' })">Upload Payment Validation</button>
+                                            @else
+                                                <button class="btn btn-primary" disabled title="You already have a payment validation for this milestone. Only rejected or deleted payments may be re-submitted." style="opacity:0.6;cursor:not-allowed;">Upload Payment Validation</button>
+                                            @endif
+                                        </div>
 
-                                    <div style="margin: 15px 0;">
-                                        @if($canUpload)
-                                            <button class="btn btn-success" onclick="openProgressUploadModal({{ $item['item_id'] }}, {{ $project->project_id }}, '{{ addslashes($item['milestone_item_title']) }}')">
-                                                {{ $hasNeedsRevision ? 'Upload Revised Progress' : 'Upload Progress' }}
-                                            </button>
-                                        @else
-                                            <button class="btn btn-success" disabled style="opacity: 0.5; cursor: not-allowed;" title="You already have a progress report submitted. Wait for review before uploading a new one.">
-                                                Upload Progress
-                                            </button>
-                                            <p style="color: #856404; font-size: 14px; margin-top: 5px;">
-                                                <em>You already have a progress report for this milestone. You can upload a new report once the current one is reviewed.</em>
-                                            </p>
-                                        @endif
-                                    </div>
-
-                                    @if(count($item['progress_files']) > 0)
-                                        <div class="progress-files">
-                                            <h5>Uploaded Progress Reports:</h5>
-                                            <div class="file-list">
-                                                @foreach($item['progress_files'] as $progress)
-                                                    <div class="file-item">
-                                                        <strong>Purpose: {{ $progress->purpose }}</strong>
-                                                        <span class="file-status status-{{ $progress->progress_status }}">
-                                                            {{ ucfirst(str_replace('_', ' ', $progress->progress_status)) }}
-                                                        </span>
-                                                        <p><small>Submitted: {{ date('M d, Y h:i A', strtotime($progress->submitted_at)) }}</small></p>
-                                                        @if(isset($progress->files) && count($progress->files) > 0)
-                                                            <p><strong>Files:</strong></p>
-                                                            <ul>
-                                                                @foreach($progress->files as $file)
-                                                                    <li>
-                                                                        <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
-                                                                            {{ $file->original_name ?? basename($file->file_path) }}
-                                                                        </a>
-                                                                    </li>
-                                                                @endforeach
-                                                            </ul>
+                                        @if(isset($item['payments']) && count($item['payments']) > 0)
+                                            @foreach($item['payments'] as $payment)
+                                                @if($payment->payment_status !== 'deleted')
+                                                    <div class="file-item {{ $payment->payment_status === 'approved' ? 'payment-approved' : '' }}">
+                                                        <strong>Payment: ₱{{ number_format($payment->amount, 2) }}</strong>
+                                                        @if($payment->payment_status === 'approved')
+                                                            <span class="file-status status-approved">Approved</span>
+                                                        @else
+                                                            <span class="file-status status-{{ $payment->payment_status }}">{{ ucfirst(str_replace('_', ' ', $payment->payment_status)) }}</span>
                                                         @endif
-                                                        @if($progress->progress_status === 'needs_revision' || $progress->progress_status === 'submitted')
-                                                            <button class="btn btn-warning" onclick="editProgress({{ $progress->progress_id }})">Edit</button>
-                                                            <button class="btn btn-danger" onclick="deleteProgress({{ $progress->progress_id }})">Delete</button>
+                                                        <p><strong>Type:</strong> {{ ucfirst(str_replace('_', ' ', $payment->payment_type)) }}</p>
+                                                        @if($payment->transaction_number)
+                                                            <p><strong>Transaction #:</strong> {{ $payment->transaction_number }}</p>
                                                         @endif
+                                                        <p><small>Date: {{ $payment->transaction_date ? date('M d, Y', strtotime($payment->transaction_date)) : 'N/A' }}</small></p>
+                                                        @if($payment->receipt_photo)
+                                                            <p><a href="{{ asset('storage/' . $payment->receipt_photo) }}" target="_blank">View Receipt</a></p>
+                                                        @endif
+                                                        <div style="margin-top:8px;">
+                                                            <button class="btn btn-secondary" onclick='PaymentModal.open("edit", @json(array_merge((array)$payment, ["item_title" => $item["milestone_item_title"]])))'>Edit</button>
+                                                            <button class="btn btn-danger" onclick="PaymentDelete.open({{ $payment->payment_id }})">Delete</button>
+                                                        </div>
                                                     </div>
-                                                @endforeach
-                                            </div>
-                                        </div>
+                                                @endif
+                                            @endforeach
+                                        @else
+                                            <div class="empty-state">No payment validations uploaded yet.</div>
+                                        @endif
                                     @endif
+                                @else
+                                    @if(isset($milestone['setup_status']) && $milestone['setup_status'] === 'approved')
+                                        @php
+                                            $canUpload = true;
+                                            $hasNeedsRevision = false;
+                                            if (count($item['progress_files']) > 0) {
+                                                foreach ($item['progress_files'] as $progress) {
+                                                    // Allow upload if status is needs_revision or deleted
+                                                    if (!in_array($progress->progress_status, ['needs_revision', 'deleted'])) {
+                                                        $canUpload = false;
+                                                    }
+                                                    if ($progress->progress_status === 'needs_revision') {
+                                                        $hasNeedsRevision = true;
+                                                    }
+                                                }
+                                            }
+                                        @endphp
 
-                                    <h5>Payment Validations:</h5>
-                                    @if(isset($item['payments']) && count($item['payments']) > 0)
-                                        @foreach($item['payments'] as $payment)
-                                            <div class="file-item {{ $payment->is_approved ? 'payment-approved' : '' }}">
-                                                <strong>Payment: ₱{{ number_format($payment->amount, 2) }}</strong>
-                                                @if($payment->is_approved)
-                                                    <span class="file-status status-approved">Approved</span>
-                                                @else
-                                                    <span class="file-status status-submitted">Pending</span>
-                                                @endif
-                                                <p><strong>Type:</strong> {{ ucfirst(str_replace('_', ' ', $payment->payment_type)) }}</p>
-                                                @if($payment->transaction_number)
-                                                    <p><strong>Transaction #:</strong> {{ $payment->transaction_number }}</p>
-                                                @endif
-                                                <p><small>Date: {{ date('M d, Y h:i A', strtotime($payment->transaction_date)) }}</small></p>
-                                                <a href="{{ asset('storage/' . $payment->receipt_photo) }}" target="_blank" class="btn btn-primary">View Receipt</a>
-
-                                                @if(!$payment->is_approved)
-                                                    <button class="btn btn-danger" onclick="disputePayment({{ $payment->payment_id }}, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">Dispute Payment</button>
-                                                @endif
-                                            </div>
-                                        @endforeach
-                                    @else
-                                        <div class="empty-state">
-                                            <p>No payment validations uploaded yet.</p>
-                                            <button class="btn btn-danger" onclick="disputePayment(0, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">File Payment Dispute</button>
+                                        <div style="margin: 15px 0;">
+                                            @if($canUpload)
+                                                <button class="btn btn-success" onclick="openProgressUploadModal({{ $item['item_id'] }}, {{ $project->project_id }}, '{{ addslashes($item['milestone_item_title']) }}')">
+                                                    {{ $hasNeedsRevision ? 'Upload Revised Progress' : 'Upload Progress' }}
+                                                </button>
+                                            @else
+                                                <button class="btn btn-success" disabled style="opacity: 0.5; cursor: not-allowed;" title="You already have a progress report submitted. Wait for review before uploading a new one.">
+                                                    Upload Progress
+                                                </button>
+                                                <p style="color: #856404; font-size: 14px; margin-top: 5px;">
+                                                    <em>You already have a progress report for this milestone. You can upload a new report once the current one is reviewed.</em>
+                                                </p>
+                                            @endif
                                         </div>
+
+                                        @if(count($item['progress_files']) > 0)
+                                            <div class="progress-files">
+                                                <h5>Uploaded Progress Reports:</h5>
+                                                <div class="file-list">
+                                                    @foreach($item['progress_files'] as $progress)
+                                                        <div class="file-item">
+                                                            <strong>Purpose: {{ $progress->purpose }}</strong>
+                                                            <span class="file-status status-{{ $progress->progress_status }}">
+                                                                {{ ucfirst(str_replace('_', ' ', $progress->progress_status)) }}
+                                                            </span>
+                                                            <p><small>Submitted: {{ date('M d, Y h:i A', strtotime($progress->submitted_at)) }}</small></p>
+                                                            @if(isset($progress->files) && count($progress->files) > 0)
+                                                                <p><strong>Files:</strong></p>
+                                                                <ul>
+                                                                    @foreach($progress->files as $file)
+                                                                        <li>
+                                                                            <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
+                                                                                {{ $file->original_name ?? basename($file->file_path) }}
+                                                                            </a>
+                                                                        </li>
+                                                                    @endforeach
+                                                                </ul>
+                                                            @endif
+                                                            @if($progress->progress_status === 'needs_revision' || $progress->progress_status === 'submitted')
+                                                                <button class="btn btn-warning" onclick="editProgress({{ $progress->progress_id }})">Edit</button>
+                                                                <button class="btn btn-danger" onclick="deleteProgress({{ $progress->progress_id }})">Delete</button>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        <h5>Payment Validations:</h5>
+                                        @if(isset($item['payments']) && count($item['payments']) > 0)
+                                            @foreach($item['payments'] as $payment)
+                                                @if($payment->payment_status !== 'deleted')
+                                                    <div class="file-item {{ $payment->payment_status === 'approved' ? 'payment-approved' : '' }}">
+                                                    <strong>Payment: ₱{{ number_format($payment->amount, 2) }}</strong>
+                                                        @if($payment->payment_status === 'approved')
+                                                        <span class="file-status status-approved">Approved</span>
+                                                    @else
+                                                            <span class="file-status status-{{ $payment->payment_status }}">{{ ucfirst(str_replace('_', ' ', $payment->payment_status)) }}</span>
+                                                    @endif
+                                                    <p><strong>Type:</strong> {{ ucfirst(str_replace('_', ' ', $payment->payment_type)) }}</p>
+                                                    @if($payment->transaction_number)
+                                                        <p><strong>Transaction #:</strong> {{ $payment->transaction_number }}</p>
+                                                    @endif
+                                                        <p><small>Date: {{ date('M d, Y', strtotime($payment->transaction_date)) }}</small></p>
+                                                    <a href="{{ asset('storage/' . $payment->receipt_photo) }}" target="_blank" class="btn btn-primary">View Receipt</a>
+
+                                                        @if($payment->payment_status !== 'approved' && $payment->payment_status !== 'deleted')
+                                                            @if($payment->payment_status === 'submitted')
+                                                                <button class="btn btn-success" onclick="openApprovePaymentModal({{ $payment->payment_id }})">Approve</button>
+                                                            @endif
+                                                            <button class="btn btn-danger" onclick="disputePayment({{ $payment->payment_id }}, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">Dispute Payment</button>
+                                                        @endif
+                                                </div>
+                                                @endif
+                                            @endforeach
+                                        @else
+                                            <div class="empty-state">
+                                                <p>No payment validations uploaded yet.</p>
+                                                <button class="btn btn-danger" onclick="disputePayment(0, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">File Payment Dispute</button>
+                                            </div>
+                                        @endif
                                     @endif
                                 @endif
                             </div>
@@ -446,52 +623,36 @@
             </div>
         @endif
     </div>
+        @endif
 
     @include('modals.addEditDisputeModal')
-    @include('modals.addEditProgress')
-    @include('modals.deleteProgress')
+    @include('modals.addEditProgressModal')
+    @include('modals.deleteProgressModal')
+    @include('modals.approveProgressModal')
+    @include('modals.addEditPaymentModal')
+    @include('modals.deletePaymentModal')
+    @include('modals.approvePaymentModal')
+    @if($isOwner && $project->project_status === 'open')
+        @include('modals.acceptBidModal')
+    @endif
 
     <script src="{{ asset('js/modal.js') }}"></script>
     <script src="{{ asset('js/both.js') }}"></script>
+    @if($isContractor)
+        <script src="{{ asset('js/contractor.js') }}"></script>
+    @endif
 
-    <script>
-        function openProgressUploadModal(itemId, projectId, itemTitle) {
-            ProgressModal.open('add', {
-                item_id: itemId,
-                project_id: projectId,
-                item_title: itemTitle
-            });
-        }
+    @if($isContractor && count($milestones) > 0)
+        @include('modals.deleteMilestoneModal')
+    @endif
 
-        function editProgress(progressId) {
-            fetch(`/contractor/progress/files/0?progress_id=${progressId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const progressData = data.data;
-                        // Transform data to match modal expectations
-                        const modalData = {
-                            progress_id: progressData.progress_id || progressId,
-                            item_id: progressData.item_id,
-                            project_id: progressData.project_id,
-                            item_title: progressData.item_title,
-                            purpose: progressData.purpose,
-                            files: progressData.files || []
-                        };
-                        ProgressModal.open('edit', modalData);
-                    } else {
-                        alert('Error loading progress: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error loading progress');
-                });
-        }
+    @if($isOwner)
+        @include('modals.approveMilestoneModal')
+        @include('modals.rejectMilestoneModal')
+    @endif
+    @if($isOwner)
+        <script src="{{ asset('js/owner.js') }}"></script>
+    @endif
 
-        function deleteProgress(progressId) {
-            ProgressDelete.open(progressId);
-        }
-    </script>
 </body>
 </html>

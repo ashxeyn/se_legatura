@@ -7,6 +7,7 @@ use App\Http\Requests\Contractor\cProcessRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\contractor\contractorClass;
 
 class cprocessController extends Controller
@@ -181,7 +182,18 @@ class cprocessController extends Controller
         }
 
         $projectId = $request->query('project_id');
-        $projects = $this->contractorClass->getContractorProjects($contractor->contractor_id);
+        $milestoneId = $request->query('milestone_id');
+        $projects = $this->contractorClass->getContractorProjects($contractor->contractor_id, $milestoneId);
+
+        // If editing, get existing milestone data
+        $existingMilestone = null;
+        $existingItems = [];
+        if ($milestoneId) {
+            $existingMilestone = $this->contractorClass->getMilestoneById($milestoneId, $contractor->contractor_id);
+            if ($existingMilestone) {
+                $existingItems = $this->contractorClass->getMilestoneItems($milestoneId);
+            }
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -189,16 +201,22 @@ class cprocessController extends Controller
                 'message' => 'Milestone setup form data',
                 'data' => [
                     'project_id' => $projectId,
+                    'milestone_id' => $milestoneId,
                     'projects' => $projects,
                     'contractor' => $contractor,
+                    'existing_milestone' => $existingMilestone,
+                    'existing_items' => $existingItems,
                     'current_role' => Session::get('current_role', 'contractor')
                 ]
             ], 200);
         } else {
             return view('contractor.milestoneSetup', [
                 'projectId' => $projectId,
+                'milestoneId' => $milestoneId,
                 'projects' => $projects,
-                'contractor' => $contractor
+                'contractor' => $contractor,
+                'existingMilestone' => $existingMilestone,
+                'existingItems' => $existingItems
             ]);
         }
     }
@@ -229,11 +247,26 @@ class cprocessController extends Controller
             ], 403);
         }
 
-        if ($this->contractorClass->contractorHasMilestoneForProject($validated['project_id'], $contractor->contractor_id)) {
+        // Check if editing existing milestone
+        $milestoneId = $request->input('milestone_id');
+        $isEditing = !empty($milestoneId);
+        
+        if (!$isEditing && $this->contractorClass->contractorHasMilestoneForProject($validated['project_id'], $contractor->contractor_id)) {
             return response()->json([
                 'success' => false,
                 'errors' => ['This project already has a milestone plan.']
             ], 409);
+        }
+        
+        // If editing, verify milestone belongs to contractor
+        if ($isEditing) {
+            $existingMilestone = $this->contractorClass->getMilestoneById($milestoneId, $contractor->contractor_id);
+            if (!$existingMilestone) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['Milestone not found or you do not have permission to edit it.']
+                ], 404);
+            }
         }
 
         Session::put('milestone_setup_step1', [
@@ -241,7 +274,8 @@ class cprocessController extends Controller
             'contractor_id' => (int) $contractor->contractor_id,
             'milestone_name' => $validated['milestone_name'],
             'milestone_description' => $request->input('milestone_description', $validated['milestone_name']),
-            'payment_mode' => $validated['payment_mode']
+            'payment_mode' => $validated['payment_mode'],
+            'milestone_id' => $isEditing ? (int) $milestoneId : null
         ]);
 
         Session::forget('milestone_setup_step2');
@@ -334,29 +368,91 @@ class cprocessController extends Controller
         $itemsRaw = $request->input('items');
         $items = json_decode($itemsRaw, true);
 
+        if (!is_array($items) || empty($items)) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['Please add at least one milestone item.']
+            ], 400);
+        }
+
         $startDate = strtotime($step2['start_date']);
         $endDate = strtotime($step2['end_date']);
+
+        $isEditing = !empty($step1['milestone_id']);
+        $milestoneId = $isEditing ? $step1['milestone_id'] : null;
+        
+        // Format dates for database (datetime format)
+        $startDateFormatted = date('Y-m-d 00:00:00', $startDate);
+        $endDateFormatted = date('Y-m-d 23:59:59', $endDate);
 
         try {
             DB::beginTransaction();
 
-            $planId = $this->contractorClass->createPaymentPlan([
-                'project_id' => $step1['project_id'],
-                'contractor_id' => $step1['contractor_id'],
-                'payment_mode' => $step1['payment_mode'],
-                'total_project_cost' => $step2['total_project_cost'],
-                'downpayment_amount' => $step2['downpayment_amount']
-            ]);
+            if ($isEditing && $milestoneId) {
+                // Update existing milestone
+                $existingMilestone = $this->contractorClass->getMilestoneById($milestoneId, $step1['contractor_id']);
+                if (!$existingMilestone) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'errors' => ['Milestone not found or you do not have permission to edit it.']
+                    ], 404);
+                }
 
-            $milestoneId = $this->contractorClass->createMilestone([
-                'project_id' => $step1['project_id'],
-                'contractor_id' => $step1['contractor_id'],
-                'plan_id' => $planId,
-                'milestone_name' => $step1['milestone_name'],
-                'milestone_description' => $step1['milestone_description'],
-                'start_date' => $step2['start_date'],
-                'end_date' => $step2['end_date']
-            ]);
+                // Update payment plan
+                $this->contractorClass->updatePaymentPlan($existingMilestone->plan_id, [
+                    'payment_mode' => $step1['payment_mode'],
+                    'total_project_cost' => $step2['total_project_cost'],
+                    'downpayment_amount' => $step2['downpayment_amount'],
+                    'updated_at' => now()
+                ]);
+
+                // Update milestone
+                $milestoneUpdateData = [
+                    'milestone_name' => $step1['milestone_name'],
+                    'start_date' => $startDateFormatted,
+                    'end_date' => $endDateFormatted,
+                    'setup_status' => 'submitted',
+                    'updated_at' => now()
+                ];
+                
+                // Only update milestone_description if it exists in step1
+                if (isset($step1['milestone_description']) && !empty($step1['milestone_description'])) {
+                    $milestoneUpdateData['milestone_description'] = $step1['milestone_description'];
+                } else {
+                    // Use milestone_name as fallback if description is not provided
+                    $milestoneUpdateData['milestone_description'] = $step1['milestone_name'];
+                }
+                
+                $this->contractorClass->updateMilestone($milestoneId, $milestoneUpdateData);
+
+                // Delete existing milestone items
+                $this->contractorClass->deleteMilestoneItems($milestoneId);
+            } else {
+                // Create new milestone
+                $planId = $this->contractorClass->createPaymentPlan([
+                    'project_id' => $step1['project_id'],
+                    'contractor_id' => $step1['contractor_id'],
+                    'payment_mode' => $step1['payment_mode'],
+                    'total_project_cost' => $step2['total_project_cost'],
+                    'downpayment_amount' => $step2['downpayment_amount']
+                ]);
+
+                $milestoneDescription = isset($step1['milestone_description']) && !empty($step1['milestone_description']) 
+                    ? $step1['milestone_description'] 
+                    : $step1['milestone_name'];
+                
+                $milestoneId = $this->contractorClass->createMilestone([
+                    'project_id' => $step1['project_id'],
+                    'contractor_id' => $step1['contractor_id'],
+                    'plan_id' => $planId,
+                    'milestone_name' => $step1['milestone_name'],
+                    'milestone_description' => $milestoneDescription,
+                    'start_date' => $startDateFormatted,
+                    'end_date' => $endDateFormatted,
+                    'setup_status' => 'submitted'
+                ]);
+            }
 
             $remainingAmount = $step2['total_project_cost'];
             if ($step1['payment_mode'] === 'downpayment') {
@@ -384,9 +480,20 @@ class cprocessController extends Controller
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Error saving milestone: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Step1 data: ' . json_encode($step1 ?? []));
+            Log::error('Step2 data: ' . json_encode($step2 ?? []));
+            Log::error('Items data: ' . json_encode($items ?? []));
+            
+            $errorMessage = 'An error occurred while saving the milestone. Please try again.';
+            if (config('app.debug')) {
+                $errorMessage .= ' Error: ' . $e->getMessage();
+            }
+            
             return response()->json([
                 'success' => false,
-                'errors' => ['An error occurred while saving the milestone. Please try again.']
+                'errors' => [$errorMessage]
             ], 500);
         }
 
@@ -394,22 +501,107 @@ class cprocessController extends Controller
         Session::forget('milestone_setup_step2');
         Session::forget('milestone_setup_items');
 
+        $message = $isEditing ? 'Milestone plan updated successfully!' : 'Milestone plan created successfully!';
+
         if ($request->expectsJson()) {
-
             return response()->json([
                 'success' => true,
-                'message' => 'Milestone plan created successfully!',
+                'message' => $message,
                 'milestone_id' => $milestoneId,
-                'plan_id' => $planId,
                 'redirect_url' => '/dashboard'
-            ], 201);
+            ], $isEditing ? 200 : 201);
         } else {
-
             return response()->json([
                 'success' => true,
-                'message' => 'Milestone plan created successfully!',
+                'message' => $message,
                 'redirect' => '/dashboard'
             ]);
+        }
+    }
+
+    public function deleteMilestone(Request $request, $milestoneId)
+    {
+        $accessCheck = $this->checkContractorAccess($request);
+        if ($accessCheck) {
+            return $accessCheck;
+        }
+
+        $user = Session::get('user');
+        $contractor = $this->contractorClass->getContractorByUserId($user->user_id);
+
+        if (!$contractor) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Contractor profile not found.'
+            ], 404);
+        }
+
+        // Validate deletion reason
+        $request->validate([
+            'deletion_reason' => 'required|string|max:500'
+        ], [
+            'deletion_reason.required' => 'Please provide a reason for deletion.',
+            'deletion_reason.max' => 'Deletion reason cannot exceed 500 characters.'
+        ]);
+
+        // Verify milestone belongs to contractor
+        $milestone = DB::table('milestones')
+            ->where('milestone_id', $milestoneId)
+            ->where('contractor_id', $contractor->contractor_id)
+            ->first();
+
+        if (!$milestone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Milestone not found or you do not have permission to delete it.'
+            ], 404);
+        }
+
+        // Check if milestone is already deleted
+        if (isset($milestone->is_deleted) && $milestone->is_deleted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This milestone has already been deleted.'
+            ], 400);
+        }
+
+        try {
+            // Soft delete: Set is_deleted to true
+            $updateData = [
+                'is_deleted' => 1,
+                'updated_at' => now()
+            ];
+            
+            // Try to update with deletion_reason first
+            try {
+                $updateDataWithReason = array_merge($updateData, ['deletion_reason' => $request->input('deletion_reason')]);
+                DB::table('milestones')
+                    ->where('milestone_id', $milestoneId)
+                    ->update($updateDataWithReason);
+            } catch (\Exception $e) {
+                // If deletion_reason column doesn't exist, try without it
+                if (strpos($e->getMessage(), 'deletion_reason') !== false || strpos($e->getMessage(), 'Unknown column') !== false) {
+                    Log::info('deletion_reason column does not exist, updating without it: ' . $e->getMessage());
+                    DB::table('milestones')
+                        ->where('milestone_id', $milestoneId)
+                        ->update($updateData);
+                } else {
+                    // Re-throw if it's a different error
+                    throw $e;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Milestone deleted successfully.'
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error deleting milestone: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while deleting the milestone. Please try again.'
+            ], 500);
         }
     }
 }

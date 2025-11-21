@@ -176,10 +176,10 @@ class progressUploadController extends Controller
                 ], 400);
             }
 
-            $files = $request->file('progress_files');
-            if (!is_array($files)) {
-                $files = [$files];
-            }
+                $files = $request->file('progress_files');
+                if (!is_array($files)) {
+                    $files = [$files];
+                }
 
             if (count($files) === 0) {
                 return response()->json([
@@ -203,7 +203,7 @@ class progressUploadController extends Controller
             // Handle multiple progress files
             $uploadedFiles = [];
             $uploadedFilePaths = [];
-            
+
             try {
                 foreach ($files as $file) {
                     if (!$file->isValid()) {
@@ -240,7 +240,7 @@ class progressUploadController extends Controller
                         'file_name' => $originalFileName,
                         'file_path' => $storagePath
                     ];
-                    
+
                     $uploadedFilePaths[] = $storagePath;
                 }
             } catch (\Exception $fileException) {
@@ -248,38 +248,38 @@ class progressUploadController extends Controller
                 if ($progressId) {
                     $this->progressUploadClass->updateProgressStatus($progressId, 'deleted');
                 }
-                
+
                 // Delete any uploaded files
                 foreach ($uploadedFilePaths as $path) {
                     if (Storage::disk('public')->exists($path)) {
                         Storage::disk('public')->delete($path);
                     }
                 }
-                
+
                 throw $fileException;
             }
 
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Progress files uploaded successfully',
-                    'data' => [
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Progress files uploaded successfully',
+                        'data' => [
                         'progress_id' => $progressId,
-                        'uploaded_files' => $uploadedFiles,
-                        'files_count' => count($uploadedFiles),
-                        'milestone_item' => [
-                            'item_id' => $milestoneItem->item_id,
-                            'title' => $milestoneItem->milestone_item_title,
-                            'project_title' => $milestoneItem->project_title
+                            'uploaded_files' => $uploadedFiles,
+                            'files_count' => count($uploadedFiles),
+                            'milestone_item' => [
+                                'item_id' => $milestoneItem->item_id,
+                                'title' => $milestoneItem->milestone_item_title,
+                                'project_title' => $milestoneItem->project_title
+                            ]
                         ]
-                    ]
-                ], 201);
-            } else {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Progress files uploaded successfully',
-                    'files_count' => count($uploadedFiles)
-                ], 201);
+                    ], 201);
+                } else {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Progress files uploaded successfully',
+                        'files_count' => count($uploadedFiles)
+                    ], 201);
             }
         } catch (\Exception $e) {
             \Log::error('Progress upload error: ' . $e->getMessage(), [
@@ -349,7 +349,7 @@ class progressUploadController extends Controller
             // Check if this is a request for a single progress entry
             if ($request->has('progress_id')) {
                 $progressId = $request->input('progress_id');
-                
+
                 if (!$progressId || !is_numeric($progressId)) {
                     return response()->json([
                         'success' => false,
@@ -463,7 +463,7 @@ class progressUploadController extends Controller
 
             // Get the progress and verify ownership
             $progress = $this->progressUploadClass->getProgressById($progressId);
-            
+
             if (!$progress) {
                 return response()->json([
                     'success' => false,
@@ -596,7 +596,7 @@ class progressUploadController extends Controller
 
             // Get the progress and verify ownership
             $progress = $this->progressUploadClass->getProgressById($progressId);
-            
+
             if (!$progress) {
                 return response()->json([
                     'success' => false,
@@ -646,5 +646,81 @@ class progressUploadController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function approveProgress(Request $request, $progressId)
+    {
+        $user = Session::get('user');
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required',
+                'redirect_url' => '/accounts/login'
+            ], 401);
+        }
+
+        // Only owner can approve
+        if (!in_array($user->user_type, ['property_owner', 'both'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only owners can approve progress.'
+            ], 403);
+        }
+        if ($user->user_type === 'both') {
+            $currentRole = Session::get('current_role', 'owner');
+            if ($currentRole !== 'owner') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Please switch to owner role to approve progress.'
+                ], 403);
+            }
+        }
+
+        // Find progress and verify owner
+        $progress = DB::table('progress')
+            ->join('milestone_items as mi', 'progress.milestone_item_id', '=', 'mi.item_id')
+            ->join('milestones as m', 'mi.milestone_id', '=', 'm.milestone_id')
+            ->join('projects as p', 'm.project_id', '=', 'p.project_id')
+            ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
+            ->where('progress.progress_id', $progressId)
+            ->select('progress.*', 'pr.owner_id')
+            ->first();
+
+        if (!$progress) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Progress report not found.'
+            ], 404);
+        }
+
+        // Get owner_id from property_owners table
+        $owner = DB::table('property_owners')->where('user_id', $user->user_id)->first();
+        $ownerId = $owner ? $owner->owner_id : null;
+
+        $hasPermission = false;
+        if ($ownerId && $progress->owner_id) {
+            // Compare owner_id from property_owners table
+            $hasPermission = ($progress->owner_id == $ownerId);
+        } else {
+            // Legacy: compare user_id directly
+            $hasPermission = ($progress->owner_id == $user->user_id);
+        }
+
+        if (!$hasPermission) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to approve this progress.'
+            ], 403);
+        }
+
+        // Update status
+        DB::table('progress')
+            ->where('progress_id', $progressId)
+            ->update(['progress_status' => 'approved']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Progress report approved successfully.'
+        ]);
     }
 }

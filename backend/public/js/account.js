@@ -3,12 +3,16 @@ let currentUserType = '';
 const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
 
 // Role Switching Function for Dashboard
-function switchRole(role) {
+function switchRole(role, buttonElement) {
     console.log('switchRole called with role:', role);
+    
+    const target = buttonElement || (window.event ? window.event.target : null);
 
-    // Show loading state
-    event.target.disabled = true;
-    event.target.textContent = 'Switching...';
+    // Show loading state if target exists
+    if (target) {
+        target.disabled = true;
+        target.textContent = 'Switching...';
+    }
 
     // Get CSRF token
     let csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
@@ -20,8 +24,10 @@ function switchRole(role) {
         console.error('CSRF token not found');
         alert('Security token not found. Please refresh the page.');
         // Reset button state
-        event.target.disabled = false;
-        event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+        if (target) {
+            target.disabled = false;
+            target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+        }
         return;
     }
 
@@ -51,16 +57,20 @@ function switchRole(role) {
         } else {
             alert('Failed to switch role: ' + data.message);
             // Reset button state
-            event.target.disabled = false;
-            event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+            if (target) {
+                target.disabled = false;
+                target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+            }
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('An error occurred while switching roles');
         // Reset button state
-        event.target.disabled = false;
-        event.target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+        if (target) {
+            target.disabled = false;
+            target.textContent = role === 'contractor' ? 'Switch to Contractor' : 'Switch to Property Owner';
+        }
     });
 }
 

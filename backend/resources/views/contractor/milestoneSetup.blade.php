@@ -3,15 +3,53 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Milestone Setup</title>
+	<title>Milestone Setup - Legatura</title>
 	<meta name="csrf-token" content="{{ csrf_token() }}">
+	<link rel="stylesheet" href="{{ asset('css/common.css') }}">
+	<style>
+		.step-container {
+			background: white;
+			border-radius: 8px;
+			padding: 25px;
+			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+			border: 1px solid #e4e6eb;
+			margin-bottom: 20px;
+		}
+
+		.step-container h2 {
+			font-size: 20px;
+			color: #1c1e21;
+			margin-bottom: 20px;
+			padding-bottom: 15px;
+			border-bottom: 1px solid #e4e6eb;
+		}
+
+		.step-container h3 {
+			font-size: 16px;
+			color: #1c1e21;
+			margin-bottom: 10px;
+		}
+
+		#milestoneErrorMessages,
+		#milestoneSuccessMessages {
+			margin-bottom: 20px;
+		}
+	</style>
 </head>
 <body>
+	<div class="container">
+		<div class="header">
 	<h1>Milestone Setup</h1>
-	<p>Set up the milestones for your project agreement.</p>
+			<div class="nav-links">
+				<a href="/dashboard">Back to Dashboard</a>
+			</div>
+		</div>
 
-	<div id="milestoneErrorMessages" style="display:none; color:red;"></div>
-	<div id="milestoneSuccessMessages" style="display:none; color:green;"></div>
+		<div class="card">
+			<p style="margin-bottom: 20px; color: #65676b;">Set up the milestones for your project agreement.</p>
+
+			<div id="milestoneErrorMessages" class="error-message" style="display:none;"></div>
+			<div id="milestoneSuccessMessages" class="success-message" style="display:none;"></div>
 
 	<div id="milestoneStep1" class="step-container">
 		<h2>Step 1: Milestone Details</h2>
@@ -122,8 +160,20 @@
 		</div>
 	</div>
 
+		</div>
+	</div>
+
 	<script>
 		window.contractorProjects = @json($projects);
+		@if(isset($existingMilestone) && $existingMilestone)
+			window.existingMilestone = @json($existingMilestone);
+			window.existingItems = @json($existingItems);
+			window.isEditingMilestone = true;
+		@else
+			window.existingMilestone = null;
+			window.existingItems = [];
+			window.isEditingMilestone = false;
+		@endif
 	</script>
 	<script src="{{ asset('js/contractor.js') }}"></script>
 </body>

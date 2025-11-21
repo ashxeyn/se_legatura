@@ -95,22 +95,39 @@ class disputeClass
 
     public function getUserProjects($userId)
     {
-        return DB::table('projects as p')
-            ->leftJoin('contractors as c', 'p.selected_contractor_id', '=', 'c.contractor_id')
-            ->where(function($query) use ($userId) {
-                $query->where('c.user_id', $userId)
-                      ->orWhere('p.owner_id', $userId);
-            })
-            ->select(
+        $currentRole = session('current_role');
+        // Get owner_id from property_owners table
+        $owner = DB::table('property_owners')->where('user_id', $userId)->first();
+        $ownerId = $owner ? $owner->owner_id : null;
+
+        $query = DB::table('projects as p')
+            ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
+            ->leftJoin('contractors as c', 'p.selected_contractor_id', '=', 'c.contractor_id');
+
+        if ($currentRole === 'owner' && $ownerId) {
+            $query->where('pr.owner_id', $ownerId);
+        } else if ($currentRole === 'contractor') {
+            $query->where('c.user_id', $userId);
+        } else {
+            $query->where(function($q) use ($userId, $ownerId) {
+                $q->where('c.user_id', $userId);
+                if ($ownerId) {
+                    $q->orWhere('pr.owner_id', $ownerId);
+                }
+            });
+        }
+
+        return $query->select(
                 'p.project_id',
                 'p.project_title',
                 'p.project_description',
                 'c.user_id as contractor_user_id',
-                'p.owner_id',
+                'p.selected_contractor_id',
+            'pr.owner_id',
                 'p.project_status',
-                'p.created_at'
+            'pr.created_at'
             )
-            ->orderBy('p.created_at', 'desc')
+        ->orderBy('pr.created_at', 'desc')
             ->get();
     }
 
@@ -151,11 +168,12 @@ class disputeClass
     public function getProjectById($projectId)
     {
         return DB::table('projects as p')
+            ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
             ->leftJoin('contractors as c', 'p.selected_contractor_id', '=', 'c.contractor_id')
             ->where('p.project_id', $projectId)
             ->select(
                 'p.project_id',
-                'p.owner_id',
+                'pr.owner_id',
                 'p.project_title',
                 'c.user_id as contractor_id'
             )
@@ -165,13 +183,15 @@ class disputeClass
     public function getProjectDetailsById($projectId)
     {
         return DB::table('projects as p')
-            ->leftJoin('property_owners as owner_user', 'p.owner_id', '=', 'owner_user.user_id')
+            ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
+            ->leftJoin('property_owners as owner_user', 'pr.owner_id', '=', 'owner_user.owner_id')
             ->leftJoin('contractors as c', 'p.selected_contractor_id', '=', 'c.contractor_id')
             ->leftJoin('users as contractor_user', 'c.user_id', '=', 'contractor_user.user_id')
             ->where('p.project_id', $projectId)
             ->select(
                 'p.*',
-                DB::raw("CONCAT(owner_user.first_name, ' ', owner_user.last_name) as owner_name"),
+                'pr.owner_id',
+                DB::raw("CONCAT(owner_user.first_name, ' ', COALESCE(owner_user.middle_name, ''), ' ', owner_user.last_name) as owner_name"),
                 'c.company_name as contractor_username',
                 'c.user_id as contractor_user_id',
                 'c.company_name as contractor_company_name'
@@ -184,11 +204,17 @@ class disputeClass
         return DB::table('milestones as m')
             ->leftJoin('milestone_items as mi', 'm.milestone_id', '=', 'mi.milestone_id')
             ->where('m.project_id', $projectId)
+            ->where(function($query) {
+                $query->where('m.is_deleted', 0)
+                      ->orWhereNull('m.is_deleted'); // Exclude deleted milestones
+            })
             ->select(
                 'm.milestone_id',
                 'm.milestone_name',
                 'm.milestone_description',
                 'm.milestone_status',
+                'm.setup_status',
+                'm.setup_rej_reason',
                 'm.start_date',
                 'm.end_date',
                 'mi.item_id',
@@ -233,7 +259,7 @@ class disputeClass
                 )
                 // ->orderBy('uploaded_at', 'desc')
                 ->get();
-            
+
             $progress->files = $files;
             $result[] = $progress;
         }
@@ -245,6 +271,7 @@ class disputeClass
     {
         return DB::table('milestone_payments')
             ->where('item_id', $itemId)
+            ->where('payment_status', '!=', 'deleted')
             ->select('*')
             ->orderBy('transaction_date', 'desc')
             ->get();
@@ -325,22 +352,23 @@ class disputeClass
     public function validateProjectUsers($projectId)
     {
         $project = DB::table('projects as p')
+            ->leftJoin('project_relationships as pr', 'p.relationship_id', '=', 'pr.rel_id')
             ->leftJoin('contractors as c', 'p.selected_contractor_id', '=', 'c.contractor_id')
             ->where('p.project_id', $projectId)
             ->select(
                 'p.project_id',
-                'p.owner_id',
+                'pr.owner_id',
                 'p.project_title',
                 'c.user_id as contractor_id',
                 'p.selected_contractor_id'
             )
             ->first();
 
-        if (!$project) {
+        if (!$project || !$project->owner_id) {
             return ['valid' => false, 'message' => 'Project not found'];
         }
 
-        $ownerExists = DB::table('users')->where('user_id', $project->owner_id)->exists();
+        $ownerExists = DB::table('property_owners')->where('owner_id', $project->owner_id)->exists();
         if (!$ownerExists) {
             return [
                 'valid' => false,

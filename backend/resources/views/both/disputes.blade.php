@@ -3,8 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Disputes</title>
+    <title>Disputes - Legatura</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="stylesheet" href="{{ asset('css/common.css') }}">
     <style>
         .file-input-group {
             margin-bottom: 10px;
@@ -167,14 +168,19 @@
 </head>
 <body>
     <div class="container">
-        <h1>Dispute Manawgement</h1>
-        <p>File a dispute for project issues or view existing disputes.</p>
+        <div class="header">
+            <h1>Disputes</h1>
+            <div class="nav-links">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/both/projects">My Projects</a>
+            </div>
+        </div>
+        <div id="errorMessages" class="error-message" style="display: none;"></div>
+        <div id="successMessages" class="success-message" style="display: none;"></div>
 
-        <div id="errorMessages" class="error-messages"></div>
-        <div id="successMessages" class="success-messages"></div>
-
-        <h2>File New Diaspute</h2>
-        <a href="/both/projects">Back</a>
+        <div class="card">
+            <h2 style="font-size: 20px; margin-bottom: 15px; color: #1c1e21;">File New Dispute</h2>
+            <p style="margin-bottom: 20px; color: #65676b;">File a dispute for project issues or view existing disputes.</p>
 
         <form id="fileDisputeForm">
             <div class="form-group">
@@ -230,7 +236,7 @@
                         <button type="button" class="remove-file-btn" onclick="removeFileInputWrapper(this, 'file-upload-container', 'add-more-files')" style="display:none;">Remove</button>
                     </div>
                 </div>
-                <button type="button" id="add-more-files" onclick="addMoreFilesWrapper('file-upload-container', 'add-more-files')" style="display:none;">📎 Add More Files</button>
+                <button type="button" id="add-more-files" onclick="addMoreFilesWrapper('file-upload-container', 'add-more-files')" style="display:none;">Add More Files</button>
                 <small>Accepted formats: JPG, JPEG, PNG, PDF, DOC, DOCX (Max 5MB each, up to 10 files)<br>
                 <em>Click "Add More Files" to select additional evidence files one by one.</em></small>
             </div>
@@ -238,12 +244,10 @@
             <button type="submit">Submit Dispute</button>
             <button type="button" onclick="resetForm()">Reset</button>
         </form>
+        </div>
 
-        {{-- Cancel Dispute Modal --}}
-        @include('modals.cancelDisputeModal')
-
-        <div class="dispute-list">
-            <h2>My Disputes</h2>
+        <div class="card">
+            <h2 style="font-size: 20px; margin-bottom: 15px; color: #1c1e21;">My Disputes</h2>
             <div id="disputeListContainer">
                 @if(count($disputes) > 0)
                     @foreach($disputes as $dispute)
@@ -300,7 +304,10 @@
                         </div>
                     @endforeach
                 @else
-                    <p>No disputes found.</p>
+                    <div class="empty-state">
+                        <h3>No Disputes Found</h3>
+                        <p>You haven't filed any disputes yet.</p>
+                    </div>
                 @endif
             </div>
         </div>
