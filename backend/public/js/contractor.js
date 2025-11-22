@@ -16,7 +16,7 @@ if (typeof window.DeleteMilestoneModal === 'undefined') {
         open: function(milestoneId) {
             this.milestoneId = milestoneId;
             document.getElementById('delete_milestone_id').value = milestoneId;
-            document.getElementById('deletion_reason').value = '';
+            document.getElementById('reason').value = '';
             document.getElementById('deleteMilestoneModal').style.display = 'flex';
             document.body.style.overflow = 'hidden';
             document.getElementById('deleteMilestoneErrorMessage').style.display = 'none';
@@ -28,7 +28,7 @@ if (typeof window.DeleteMilestoneModal === 'undefined') {
             document.body.style.overflow = '';
             this.milestoneId = null;
             document.getElementById('delete_milestone_id').value = '';
-            document.getElementById('deletion_reason').value = '';
+            document.getElementById('reason').value = '';
             document.getElementById('deleteMilestoneErrorMessage').style.display = 'none';
             document.getElementById('deleteMilestoneSuccessMessage').style.display = 'none';
         },
@@ -38,7 +38,7 @@ if (typeof window.DeleteMilestoneModal === 'undefined') {
                 return;
             }
 
-            const reason = document.getElementById('deletion_reason').value.trim();
+            const reason = document.getElementById('reason').value.trim();
             if (!reason) {
                 document.getElementById('deleteMilestoneErrorMessage').textContent = 'Please provide a reason for deletion.';
                 document.getElementById('deleteMilestoneErrorMessage').style.display = 'block';
@@ -68,7 +68,7 @@ if (typeof window.DeleteMilestoneModal === 'undefined') {
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
-                        deletion_reason: reason
+                        reason: reason
                     })
                 });
 
@@ -1154,336 +1154,5 @@ function editProgress(progressId) {
 function deleteProgress(progressId) {
     if (typeof ProgressDelete !== 'undefined') {
         ProgressDelete.open(progressId);
-    }
-}
-
-// Bid Modal Functions
-if (typeof window.BidModal === 'undefined') {
-    window.BidModal = {
-        deletedFiles: [],
-        selectedFiles: [],
-
-        open: function(mode) {
-            const modal = document.getElementById('bidModal');
-            const modalTitle = document.getElementById('modalTitle');
-            const formMethod = document.getElementById('form_method');
-            const submitBtn = document.getElementById('submitBtn');
-            const bidIdInput = document.getElementById('bid_id');
-
-            if (!modal || !modalTitle || !formMethod || !submitBtn || !bidIdInput) {
-                console.error('Bid modal elements not found');
-                return;
-            }
-
-            if (mode === 'edit') {
-                modalTitle.textContent = 'Edit Bid';
-                formMethod.value = 'PUT';
-                submitBtn.textContent = 'Update Bid';
-                
-                // Ensure bid_id is set and populate form fields with existing bid data
-                if (window.existingBid && window.existingBid.bid_id) {
-                    bidIdInput.value = window.existingBid.bid_id;
-                    
-                    const proposedCost = document.getElementById('proposed_cost');
-                    const estimatedTimeline = document.getElementById('estimated_timeline');
-                    const contractorNotes = document.getElementById('contractor_notes');
-                    
-                    // Set values if they exist and fields are empty
-                    if (proposedCost && !proposedCost.value && window.existingBid.proposed_cost) {
-                        proposedCost.value = window.existingBid.proposed_cost;
-                    }
-                    if (estimatedTimeline && !estimatedTimeline.value && window.existingBid.estimated_timeline) {
-                        estimatedTimeline.value = window.existingBid.estimated_timeline;
-                    }
-                    if (contractorNotes && !contractorNotes.value.trim() && window.existingBid.contractor_notes) {
-                        contractorNotes.value = window.existingBid.contractor_notes;
-                    }
-                }
-            } else {
-                modalTitle.textContent = 'Apply for Bid';
-                formMethod.value = 'POST';
-                submitBtn.textContent = 'Submit Bid';
-                bidIdInput.value = '';
-            }
-
-            // Clear error/success messages
-            const errorMsg = document.getElementById('errorMessage');
-            const successMsg = document.getElementById('successMessage');
-            if (errorMsg) errorMsg.style.display = 'none';
-            if (successMsg) successMsg.style.display = 'none';
-            
-            modal.style.display = 'flex';
-        },
-
-        close: function() {
-            const modal = document.getElementById('bidModal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-            
-            const errorMsg = document.getElementById('errorMessage');
-            const successMsg = document.getElementById('successMessage');
-            if (errorMsg) errorMsg.style.display = 'none';
-            if (successMsg) successMsg.style.display = 'none';
-            
-            this.deletedFiles = [];
-            this.selectedFiles = [];
-            
-            const fileList = document.getElementById('fileList');
-            const fileInput = document.getElementById('bid_files');
-            if (fileList) fileList.innerHTML = '';
-            if (fileInput) fileInput.value = '';
-        },
-
-        handleFiles: function(files) {
-            const fileList = document.getElementById('fileList');
-            if (!fileList) return;
-
-            for (let file of files) {
-                this.selectedFiles.push(file);
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
-                    <span class="remove-file" onclick="BidModal.removeFile('${file.name}')">×</span>
-                `;
-                fileList.appendChild(li);
-            }
-        },
-
-        removeFile: function(fileName) {
-            this.selectedFiles = this.selectedFiles.filter(f => f.name !== fileName);
-            this.updateFileList();
-        },
-
-        updateFileList: function() {
-            const fileList = document.getElementById('fileList');
-            if (!fileList) return;
-
-            fileList.innerHTML = '';
-            this.selectedFiles.forEach(file => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
-                    <span class="remove-file" onclick="BidModal.removeFile('${file.name}')">×</span>
-                `;
-                fileList.appendChild(li);
-            });
-        },
-
-        deleteExistingFile: function(fileId) {
-            if (confirm('Are you sure you want to delete this file?')) {
-                this.deletedFiles.push(fileId);
-                const fileElement = document.getElementById('file-' + fileId);
-                if (fileElement) {
-                    fileElement.style.display = 'none';
-                }
-            }
-        },
-
-        init: function() {
-            const fileInput = document.getElementById('bid_files');
-            const fileUploadArea = document.getElementById('fileUploadArea');
-            const bidForm = document.getElementById('bidForm');
-
-            if (!fileInput || !fileUploadArea || !bidForm) {
-                return;
-            }
-
-            // File input change
-            fileInput.addEventListener('change', (e) => {
-                this.handleFiles(e.target.files);
-            });
-
-            // Drag and drop
-            fileUploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                fileUploadArea.classList.add('dragover');
-            });
-
-            fileUploadArea.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                fileUploadArea.classList.remove('dragover');
-            });
-
-            fileUploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                fileUploadArea.classList.remove('dragover');
-                this.handleFiles(e.dataTransfer.files);
-            });
-
-            // Form submission
-            bidForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-
-                const formData = new FormData();
-                const formMethod = document.getElementById('form_method').value;
-                const projectId = document.querySelector('input[name="project_id"]')?.value;
-                const bidId = document.getElementById('bid_id')?.value;
-
-                // Get CSRF token
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
-                                 document.querySelector('input[name="_token"]')?.value;
-                
-                if (!csrfToken) {
-                    const errorMsg = document.getElementById('errorMessage');
-                    if (errorMsg) {
-                        errorMsg.textContent = 'CSRF token not found. Please refresh the page.';
-                        errorMsg.style.display = 'block';
-                    }
-                    return;
-                }
-
-                formData.append('_token', csrfToken);
-                
-                // Get form values
-                const proposedCost = document.getElementById('proposed_cost')?.value.trim();
-                const estimatedTimeline = document.getElementById('estimated_timeline')?.value.trim();
-                const contractorNotes = document.getElementById('contractor_notes')?.value.trim();
-
-                // Validate required fields
-                if (!proposedCost || !estimatedTimeline) {
-                    const errorMsg = document.getElementById('errorMessage');
-                    if (errorMsg) {
-                        errorMsg.textContent = 'Please fill in all required fields.';
-                        errorMsg.style.display = 'block';
-                    }
-                    return;
-                }
-
-                formData.append('proposed_cost', proposedCost);
-                formData.append('estimated_timeline', estimatedTimeline);
-                formData.append('contractor_notes', contractorNotes || '');
-
-                // Add files
-                this.selectedFiles.forEach(file => {
-                    formData.append('bid_files[]', file);
-                });
-
-                // Add deleted files
-                this.deletedFiles.forEach(fileId => {
-                    formData.append('delete_files[]', fileId);
-                });
-
-                if (formMethod === 'PUT') {
-                    if (!bidId) {
-                        const errorMsg = document.getElementById('errorMessage');
-                        if (errorMsg) {
-                            errorMsg.textContent = 'Bid ID is required for update.';
-                            errorMsg.style.display = 'block';
-                        }
-                        return;
-                    }
-                    formData.append('bid_id', bidId);
-                    formData.append('_method', 'PUT');
-                } else {
-                    formData.append('project_id', projectId);
-                }
-
-                const submitBtn = document.getElementById('submitBtn');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Submitting...';
-                }
-
-                try {
-                    let url = '/contractor/bids';
-                    if (formMethod === 'PUT') {
-                        url = '/contractor/bids/' + bidId;
-                    }
-
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        }
-                    });
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        const successMsg = document.getElementById('successMessage');
-                        if (successMsg) {
-                            successMsg.textContent = data.message;
-                            successMsg.style.display = 'block';
-                        }
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
-                    } else {
-                        const errorMsg = document.getElementById('errorMessage');
-                        if (errorMsg) {
-                            errorMsg.textContent = data.message;
-                            errorMsg.style.display = 'block';
-                        }
-                        if (submitBtn) {
-                            submitBtn.disabled = false;
-                            submitBtn.textContent = formMethod === 'PUT' ? 'Update Bid' : 'Submit Bid';
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    const errorMsg = document.getElementById('errorMessage');
-                    if (errorMsg) {
-                        errorMsg.textContent = 'An error occurred. Please try again.';
-                        errorMsg.style.display = 'block';
-                    }
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = formMethod === 'PUT' ? 'Update Bid' : 'Submit Bid';
-                    }
-                }
-            });
-
-            // Close modal when clicking outside
-            if (typeof window.modalClickHandlers === 'undefined') {
-                window.modalClickHandlers = [];
-            }
-            window.modalClickHandlers.push((event) => {
-                const bidModal = document.getElementById('bidModal');
-                if (event.target === bidModal) {
-                    window.BidModal.close();
-                }
-            });
-        }
-    };
-
-    // Global functions for bid modal
-    function openBidModal(mode) {
-        if (window.BidModal) {
-            window.BidModal.open(mode);
-        }
-    }
-
-    function closeBidModal() {
-        if (window.BidModal) {
-            window.BidModal.close();
-        }
-    }
-
-    function removeFile(fileName) {
-        if (window.BidModal) {
-            window.BidModal.removeFile(fileName);
-        }
-    }
-
-    function deleteExistingFile(fileId) {
-        if (window.BidModal) {
-            window.BidModal.deleteExistingFile(fileId);
-        }
-    }
-
-    // Initialize bid modal when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            if (document.getElementById('bidForm')) {
-                window.BidModal.init();
-            }
-        });
-    } else {
-        if (document.getElementById('bidForm')) {
-            window.BidModal.init();
-        }
     }
 }

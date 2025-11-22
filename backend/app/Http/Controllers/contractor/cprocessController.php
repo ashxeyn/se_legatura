@@ -538,10 +538,10 @@ class cprocessController extends Controller
 
         // Validate deletion reason
         $request->validate([
-            'deletion_reason' => 'required|string|max:500'
+            'reason' => 'required|string|max:500'
         ], [
-            'deletion_reason.required' => 'Please provide a reason for deletion.',
-            'deletion_reason.max' => 'Deletion reason cannot exceed 500 characters.'
+            'reason.required' => 'Please provide a reason for deletion.',
+            'reason.max' => 'Deletion reason cannot exceed 500 characters.'
         ]);
 
         // Verify milestone belongs to contractor
@@ -572,16 +572,16 @@ class cprocessController extends Controller
                 'updated_at' => now()
             ];
             
-            // Try to update with deletion_reason first
+            // Try to update with reason first
             try {
-                $updateDataWithReason = array_merge($updateData, ['deletion_reason' => $request->input('deletion_reason')]);
+                $updateDataWithReason = array_merge($updateData, ['reason' => $request->input('reason')]);
                 DB::table('milestones')
                     ->where('milestone_id', $milestoneId)
                     ->update($updateDataWithReason);
             } catch (\Exception $e) {
-                // If deletion_reason column doesn't exist, try without it
-                if (strpos($e->getMessage(), 'deletion_reason') !== false || strpos($e->getMessage(), 'Unknown column') !== false) {
-                    Log::info('deletion_reason column does not exist, updating without it: ' . $e->getMessage());
+                // If reason column doesn't exist, try without it
+                if (strpos($e->getMessage(), 'reason') !== false || strpos($e->getMessage(), 'Unknown column') !== false) {
+                    Log::info('reason column does not exist, updating without it: ' . $e->getMessage());
                     DB::table('milestones')
                         ->where('milestone_id', $milestoneId)
                         ->update($updateData);

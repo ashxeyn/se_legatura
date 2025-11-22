@@ -47,3 +47,4 @@ class biddingRequest extends FormRequest
     }
 }
 
+

@@ -11,8 +11,8 @@
             <p style="margin-bottom: 15px;">Are you sure you want to delete this milestone? Please provide a reason for deletion.</p>
 
             <div class="form-group">
-                <label for="deletion_reason">Deletion Reason <span class="required">*</span></label>
-                <textarea id="deletion_reason" name="deletion_reason" rows="4" required placeholder="Please explain why you are deleting this milestone..." maxlength="500"></textarea>
+                <label for="reason">Deletion Reason <span class="required">*</span></label>
+                <textarea id="reason" name="reason" rows="4" required placeholder="Please explain why you are deleting this milestone..." maxlength="500"></textarea>
                 <small style="color: #666; font-size: 12px;">Maximum 500 characters</small>
             </div>
 

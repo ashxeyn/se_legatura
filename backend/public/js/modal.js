@@ -265,7 +265,7 @@ if (typeof window.DisputeModal === 'undefined') {
             `;
             document.getElementById('modal-add-more-files').style.display = 'none';
 
-            modal.style.display = 'flex';
+            modal.style.display = 'block';
             document.body.style.overflow = 'hidden';
         },
 
@@ -1212,7 +1212,7 @@ if (typeof window.ProgressModal === 'undefined') {
                 });
             }
 
-            modal.style.display = 'flex';
+            modal.style.display = 'block';
             document.body.style.overflow = 'hidden';
         },
 

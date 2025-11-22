@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 21, 2025 at 03:42 PM
+-- Generation Time: Nov 22, 2025 at 08:20 AM
 -- Server version: 11.4.5-MariaDB
 -- PHP Version: 8.2.12
 
@@ -59,17 +59,11 @@ CREATE TABLE `bids` (
   `proposed_cost` decimal(15,2) NOT NULL,
   `estimated_timeline` int(11) NOT NULL,
   `contractor_notes` text DEFAULT NULL,
-  `bid_status` enum('submitted','under_review','accepted','rejected','withdrawn') DEFAULT 'submitted',
+  `bid_status` enum('submitted','under_review','accepted','rejected','cancelled') DEFAULT 'submitted',
+  `reason` text DEFAULT NULL,
   `submitted_at` timestamp NULL DEFAULT current_timestamp(),
   `decision_date` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `bids`
---
-
-INSERT INTO `bids` (`bid_id`, `project_id`, `contractor_id`, `proposed_cost`, `estimated_timeline`, `contractor_notes`, `bid_status`, `submitted_at`, `decision_date`) VALUES
-(1, 1, 1, 1000000.00, 12, 'SHEESH', 'accepted', '2025-11-05 12:17:23', NULL);
 
 -- --------------------------------------------------------
 
@@ -122,21 +116,6 @@ CREATE TABLE `contractors` (
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `contractors`
---
-
-INSERT INTO `contractors` (`contractor_id`, `user_id`, `company_name`, `years_of_experience`, `type_id`, `contractor_type_other`, `services_offered`, `business_address`, `company_email`, `company_phone`, `company_website`, `company_social_media`, `company_description`, `picab_number`, `picab_category`, `picab_expiration_date`, `business_permit_number`, `business_permit_city`, `business_permit_expiration`, `tin_business_reg_number`, `dti_sec_registration_photo`, `verification_status`, `verification_date`, `rejection_reason`, `completed_projects`, `created_at`, `updated_at`) VALUES
-(1, 2, 'Sandbox', 13, 5, NULL, 'SHEESH', 'Sheesh, Sagua, Margosatubig, Zamboanga Del Sur 7000', 'sandbox@gmail.com', '09926314079', 'https://chatgpt.com/c/6905fa96-08c0-8321-8a63-d13ae3fabea5', NULL, NULL, '123123', 'AAA', '2025-11-06', '123213', 'Abucay', '2025-11-06', '123123', 'DTI_SEC/9Fx1ys8wvaTxw6UsmqO2QyJufudjy4T1gXRIAqCY.jpg', 'pending', NULL, NULL, 0, '2025-11-01 05:30:31', '2025-11-01 05:30:31'),
-(2, 1, 'sad', 12, 5, NULL, 'dsd', 'asdasd, Minanga Sur, Iguig, Cagayan 1234', 'ashxeyn@gmail.com', '09926312271', NULL, NULL, NULL, 'ad12312', 'AAAA', '2025-11-08', '13231', 'Al-Barka', '2025-11-08', '13123123', 'contractor_documents/1762006595_dti_sec_557969314_2535718666804066_2236441680610974884_n.png', 'pending', NULL, NULL, 0, '2025-11-01 06:16:37', '2025-11-01 06:16:37'),
-(3, 11, 'Niggatura', 12, 9, 'naueg', 'afsf', 'asasda, Taloto, City of Tagbilaran, Bohol 2311', 'ahdbahsahdbahs@gmail.com', '09926314033', NULL, NULL, NULL, '12312312312', 'AA', '2025-11-07', '123123131', 'Abra De Ilog', '2025-11-06', '13123132131', 'DTI_SEC/ghZAar8qp7Uxv8pz82RX3JHN3CLHXJlNHVphoRIR.png', 'pending', NULL, NULL, 0, '2025-11-02 00:05:40', '2025-11-02 00:05:40'),
-(5, 10, 'adad', 23, 2, NULL, 'sdada', 'adad, Singi, Vinzons, Camarines Norte 2311', 'ahdbahs@gmal.com', '09926314072', NULL, NULL, NULL, '12312333', 'AAA', '2025-11-06', '12312312312313', 'Abra De Ilog', '2025-11-12', '13123124123', 'contractor_documents/1762074010_dti_sec_work diagram.drawio.png', 'pending', NULL, NULL, 0, '2025-11-02 01:00:12', '2025-11-02 01:00:12'),
-(6, 15, 'asdasd', 123, 8, NULL, 'adasd', 'asdasda, Catacdegan Nuevo, Manabo, Abra 2311', 'krystalbwerongow24@gmail.com', '09926314071', NULL, NULL, NULL, '123456', 'AAA', '2025-11-26', '1231231321', 'Abuyog', '2025-11-26', '123123', 'DTI_SEC/JbQ9fPQN2SI2lwi52Sxq1l1dQTZyHGn2nFHglcuD.png', 'pending', NULL, NULL, 0, '2025-11-11 06:51:26', '2025-11-11 06:51:26'),
-(7, 16, 'sdfsdfsdfs', 23, 1, NULL, 'asdasda', 'asda, Pedagan, Mahayag, Zamboanga Del Sur 2311', 'asdada@gmail.com', '09926314073', NULL, NULL, NULL, 'asdada', 'AAA', '2025-11-19', 'asdasd', 'Abuyog', '2025-11-28', 'adasda', 'DTI_SEC/IZKWiIa1uVBdBuwQV9EbDFxQqxpXOgA8aP1VyPQR.png', 'pending', NULL, NULL, 0, '2025-11-13 06:26:39', '2025-11-13 06:26:39'),
-(8, 19, 'ASASD', 12, 5, NULL, 'qsdas', 'zxcz, Rosario, Cortes, Bohol 2311', 'ashASxeyn@gmail.com', '09926314072', NULL, NULL, NULL, '12312313', 'AAA', '2025-11-21', 'asdsd', 'Abucay', '2025-11-14', '1231231', 'DTI_SEC/cAQh2ZkQqn7aEkmKIwFbwuyEFBawqswZ70oqdJWh.jpg', 'pending', NULL, NULL, 0, '2025-11-13 06:55:25', '2025-11-13 06:55:25'),
-(9, 22, 'asd', 2, 2, NULL, 'dsd', 'sdf, Magbangon (Pob.), Cabucgayan, Biliran 2311', 'sdfsssfd@wmsu.edu.ph', '09926314033', NULL, NULL, NULL, '234234', 'AAA', '2025-11-22', '23423234', 'Abuyog', '2025-11-22', '23432', 'contractor_documents/1763055635_dti_sec_19a87211-2771-468f-9af6-598e9e20c2f5-removebg-preview.png', 'pending', NULL, NULL, 0, '2025-11-13 09:40:37', '2025-11-13 09:40:37'),
-(10, 24, 'ad', 23, 5, NULL, '3df', 'sdf, Kitaihon, Kitaotao, Bukidnon 2311', 'sdfddddsssfd@wmsu.edu.ph', '09926314033', NULL, NULL, NULL, '231231', 'AA', '2025-12-06', '12313131', 'Agdangan', '2025-11-22', '132313', 'DTI_SEC/qLZOtzwcMNmHx8zu7c4FccXY3oi6qxNXnFqfcVto.jpg', 'pending', NULL, NULL, 0, '2025-11-13 09:48:08', '2025-11-13 09:48:08');
-
 -- --------------------------------------------------------
 
 --
@@ -147,21 +126,6 @@ CREATE TABLE `contractor_types` (
   `type_id` int(11) NOT NULL,
   `type_name` varchar(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `contractor_types`
---
-
-INSERT INTO `contractor_types` (`type_id`, `type_name`) VALUES
-(6, 'Architectural Contractor'),
-(5, 'Civil Works Contractor'),
-(2, 'Electrical Contractor'),
-(1, 'General Contractor'),
-(7, 'Interior Fit-out Contractor'),
-(8, 'Landscaping Contractor'),
-(4, 'Mechanical Contractor'),
-(9, 'Others'),
-(3, 'Pool Contractor');
 
 -- --------------------------------------------------------
 
@@ -182,21 +146,6 @@ CREATE TABLE `contractor_users` (
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `contractor_users`
---
-
-INSERT INTO `contractor_users` (`contractor_user_id`, `contractor_id`, `user_id`, `authorized_rep_lname`, `authorized_rep_mname`, `authorized_rep_fname`, `phone_number`, `role`, `is_active`, `created_at`) VALUES
-(1, 1, 2, 'Hart', NULL, 'Shane', '09926354567', 'owner', 1, '2025-11-01 05:30:31'),
-(2, 2, 1, 'Jimenez', NULL, 'Shane Hart', '09926314071', 'owner', 1, '2025-11-01 06:16:37'),
-(3, 3, 11, 'ahdbahsahdbahs', NULL, 'ahdbahahdbahss', '09926314033', 'owner', 1, '2025-11-02 00:05:40'),
-(5, 5, 10, 'ahdbahs', NULL, 'ahdbahs', '09926314071', 'owner', 1, '2025-11-02 01:00:12'),
-(6, 6, 15, 'Rwerwerwer', NULL, 'Werwerw', '09926314071', 'owner', 1, '2025-11-11 06:51:26'),
-(7, 7, 16, 'Asdada', NULL, 'Asdsda', '09926314073', 'owner', 0, '2025-11-13 06:26:39'),
-(8, 8, 19, 'Dfsdfs', NULL, 'Ewwe', '09926314072', 'owner', 0, '2025-11-13 06:55:25'),
-(9, 9, 22, 'Asda', NULL, 'Asda', '09923314071', 'owner', 0, '2025-11-13 09:40:37'),
-(10, 10, 24, 'Sdf', 'Sdf', 'Sdf', '09926314033', 'owner', 0, '2025-11-13 09:48:08');
-
 -- --------------------------------------------------------
 
 --
@@ -213,22 +162,11 @@ CREATE TABLE `disputes` (
   `dispute_type` enum('Payment','Delay','Quality','Others') NOT NULL,
   `dispute_desc` text NOT NULL,
   `dispute_status` enum('open','under_review','resolved','closed','cancelled') DEFAULT 'open',
+  `reason` text NOT NULL,
   `admin_response` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `resolved_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `disputes`
---
-
-INSERT INTO `disputes` (`dispute_id`, `project_id`, `raised_by_user_id`, `against_user_id`, `milestone_id`, `milestone_item_id`, `dispute_type`, `dispute_desc`, `dispute_status`, `admin_response`, `created_at`, `resolved_at`) VALUES
-(15, 1, 2, 10, 2, 6, 'Delay', 'asdasdasdasdasda', 'cancelled', NULL, '2025-11-14 01:53:23', '2025-11-18 15:19:35'),
-(35, 3, 2, 10, 7, 17, 'Delay', 'asdasd', 'cancelled', NULL, '2025-11-14 08:35:33', '2025-11-19 19:54:33'),
-(36, 5, 2, 10, 8, 18, 'Payment', 'asdsd', 'cancelled', NULL, '2025-11-15 04:45:57', '2025-11-19 19:55:24'),
-(44, 3, 2, 10, 7, 16, 'Delay', 'asdasdsaxsxa', 'cancelled', NULL, '2025-11-18 16:20:06', '2025-11-19 19:55:29'),
-(45, 5, 2, 10, 8, 18, 'Delay', 'ads', 'open', NULL, '2025-11-19 19:55:43', NULL),
-(46, 1, 2, 10, 2, 5, 'Quality', 'asdsd', 'open', NULL, '2025-11-20 06:02:53', NULL);
 
 -- --------------------------------------------------------
 
@@ -245,19 +183,6 @@ CREATE TABLE `dispute_files` (
   `size` int(11) UNSIGNED DEFAULT NULL,
   `uploaded_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `dispute_files`
---
-
-INSERT INTO `dispute_files` (`file_id`, `dispute_id`, `storage_path`, `original_name`, `mime_type`, `size`, `uploaded_at`) VALUES
-(57, 36, 'disputes/evidence/1763507964_691cfefc9408c.jpg', '19a87211-2771-468f-9af6-598e9e20c2f5.jpg', 'image/jpeg', 445335, '2025-11-18 15:19:24'),
-(61, 44, 'disputes/evidence/1763511606_691d0d36ce335.png', '19a87211-2771-468f-9af6-598e9e20c2f5-removebg-preview.png', 'image/png', 240418, '2025-11-18 16:20:06'),
-(63, 44, 'disputes/evidence/1763511624_691d0d48d4c36.jpg', '19a87211-2771-468f-9af6-598e9e20c2f5.jpg', 'image/jpeg', 445335, '2025-11-18 16:20:24'),
-(64, 44, 'disputes/evidence/1763511624_691d0d48d6395.pdf', 'PROGRESS REPORT NI RON9.pdf', 'application/pdf', 260981, '2025-11-18 16:20:24'),
-(65, 45, 'disputes/evidence/1763610943_691e913f55e17.pdf', 'PROGRESS REPORT NI RON6.pdf', 'application/pdf', 256063, '2025-11-19 19:55:44'),
-(66, 46, 'disputes/evidence/1763647373_691f1f8d143e8.jpeg', '9dee9c29-6a22-4b03-92e2-a36c70d43bcb.jpeg', 'image/jpeg', 412206, '2025-11-20 06:02:53'),
-(67, 46, 'disputes/evidence/1763647373_691f1f8dcabce.jpeg', '9dee9c29-6a22-4b03-92e2-a36c70d43bcb.jpeg', 'image/jpeg', 412206, '2025-11-20 06:02:53');
 
 -- --------------------------------------------------------
 
@@ -287,22 +212,16 @@ CREATE TABLE `milestones` (
   `plan_id` int(11) NOT NULL,
   `milestone_name` varchar(200) NOT NULL,
   `milestone_description` text NOT NULL,
-  `milestone_status` enum('not_started','in_progress','submitted','under_review','approved','rejected','delayed') DEFAULT 'not_started',
+  `milestone_status` enum('not_started','in_progress','rejected','delayed','cancelled') DEFAULT 'not_started',
   `start_date` datetime NOT NULL,
   `end_date` datetime NOT NULL,
+  `is_deleted` tinyint(1) DEFAULT NULL,
+  `reason` text DEFAULT NULL,
+  `setup_status` enum('submitted','rejected','approved','') NOT NULL DEFAULT 'submitted',
+  `setup_rej_reason` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `milestones`
---
-
-INSERT INTO `milestones` (`milestone_id`, `project_id`, `contractor_id`, `plan_id`, `milestone_name`, `milestone_description`, `milestone_status`, `start_date`, `end_date`, `created_at`, `updated_at`) VALUES
-(2, 1, 1, 2, 'MSJNSJD', 'MSJNSJD', 'not_started', '2025-11-05 00:00:00', '2026-11-05 23:59:59', '2025-11-05 05:13:10', '2025-11-05 05:13:10'),
-(7, 3, 1, 7, 'NIGGA', 'NIGGA', 'not_started', '2025-11-14 00:00:00', '2025-12-31 23:59:59', '2025-11-14 00:20:50', '2025-11-14 00:20:50'),
-(8, 5, 1, 8, 'asdad', 'asdad', 'not_started', '2025-11-15 00:00:00', '2025-12-31 23:59:59', '2025-11-15 04:45:04', '2025-11-15 04:45:04'),
-(9, 6, 1, 9, 'MNAME SAMPLE', 'MNAME SAMPLE', 'not_started', '2025-11-21 00:00:00', '2026-01-31 23:59:59', '2025-11-20 22:50:42', '2025-11-20 22:50:42');
 
 -- --------------------------------------------------------
 
@@ -320,20 +239,6 @@ CREATE TABLE `milestone_items` (
   `milestone_item_cost` decimal(12,2) NOT NULL,
   `date_to_finish` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `milestone_items`
---
-
-INSERT INTO `milestone_items` (`item_id`, `milestone_id`, `sequence_order`, `percentage_progress`, `milestone_item_title`, `milestone_item_description`, `milestone_item_cost`, `date_to_finish`) VALUES
-(5, 2, 1, 50.00, 'M1', 'ASDASDA', 50000.00, '2026-07-05 23:59:59'),
-(6, 2, 2, 50.00, 'M2', 'ASDAD', 50000.00, '2026-11-05 23:59:59'),
-(16, 7, 1, 90.00, 'NIGGA 1', 'ASDD', 8100.00, '2025-11-30 23:59:59'),
-(17, 7, 2, 10.00, 'NIGGA 2', 'ASD', 900.00, '2025-12-31 23:59:59'),
-(18, 8, 1, 90.00, 'NIGGA SI CARL', 'SDFSDF', 7200.00, '2025-11-30 23:59:59'),
-(19, 8, 2, 10.00, 'CARL WAYNE SUNTUKAN', 'SDFSDFSDF', 800.00, '2025-12-31 23:59:59'),
-(20, 9, 1, 10.00, 'first', 'hshahaha', 400.00, '2025-11-30 23:59:59'),
-(21, 9, 2, 90.00, 'zvz', 'vzvzvz', 3600.00, '2026-01-31 23:59:59');
 
 -- --------------------------------------------------------
 
@@ -353,17 +258,9 @@ CREATE TABLE `milestone_payments` (
   `receipt_photo` varchar(255) NOT NULL,
   `transaction_date` date DEFAULT current_timestamp(),
   `payment_status` enum('submitted','approved','rejected','deleted') DEFAULT 'submitted',
+  `reason` text DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `milestone_payments`
---
-
-INSERT INTO `milestone_payments` (`payment_id`, `item_id`, `project_id`, `owner_id`, `contractor_user_id`, `amount`, `payment_type`, `transaction_number`, `receipt_photo`, `transaction_date`, `payment_status`, `updated_at`) VALUES
-(8, 18, 5, 10, 2, 20000.00, 'bank_transfer', 'AS123123', 'payments/receipts/1763694818_691fd8e2ece88.jpg', '2025-11-20', 'submitted', '2025-11-21 13:49:46'),
-(9, 19, 5, 10, 2, 10098.00, 'check', 'adad1231', 'payments/receipts/1763695141_691fda255e475.png', '2025-11-19', 'submitted', '2025-11-21 03:19:01'),
-(10, 18, 5, 10, 2, 3453.00, 'bank_transfer', 'dda', 'payments/receipts/1763731984_69206a103bd59.jpg', '2025-11-26', 'deleted', '2025-11-21 14:21:15');
 
 -- --------------------------------------------------------
 
@@ -443,18 +340,6 @@ CREATE TABLE `payment_plans` (
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `payment_plans`
---
-
-INSERT INTO `payment_plans` (`plan_id`, `project_id`, `contractor_id`, `payment_mode`, `total_project_cost`, `downpayment_amount`, `is_confirmed`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 'downpayment', 100000.00, 10000.00, 1, '2025-11-05 04:28:00', '2025-11-12 14:37:04'),
-(2, 1, 1, 'full_payment', 100000.00, 0.00, 0, '2025-11-05 05:13:10', '2025-11-05 05:13:10'),
-(6, 3, 1, 'downpayment', 20000.00, 1000.00, 0, '2025-11-14 00:12:32', '2025-11-14 00:12:32'),
-(7, 3, 1, 'downpayment', 10000.00, 1000.00, 0, '2025-11-14 00:20:50', '2025-11-14 00:20:50'),
-(8, 5, 1, 'downpayment', 9000.00, 1000.00, 0, '2025-11-15 04:45:04', '2025-11-15 04:45:04'),
-(9, 6, 1, 'downpayment', 5000.00, 1000.00, 0, '2025-11-20 22:50:42', '2025-11-20 22:50:42');
-
 -- --------------------------------------------------------
 
 --
@@ -491,14 +376,6 @@ CREATE TABLE `progress` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `progress`
---
-
-INSERT INTO `progress` (`progress_id`, `milestone_item_id`, `purpose`, `progress_status`, `submitted_at`, `updated_at`) VALUES
-(7, 18, 'asdasdfssdfedsd', 'approved', '2025-11-20 04:07:46', NULL),
-(8, 20, 'aadadaf', 'deleted', '2025-11-21 06:51:15', NULL);
-
 -- --------------------------------------------------------
 
 --
@@ -512,17 +389,6 @@ CREATE TABLE `progress_files` (
   `original_name` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `progress_files`
---
-
-INSERT INTO `progress_files` (`file_id`, `progress_id`, `file_path`, `original_name`) VALUES
-(8, 7, 'progress_uploads/1763611666_691e9412e749d.jpg', '19a87211-2771-468f-9af6-598e9e20c2f5.jpg'),
-(10, 7, 'progress_uploads/1763643611_691f10dbc90ce.jpg', '19a87211-2771-468f-9af6-598e9e20c2f5.jpg'),
-(11, 7, 'progress_uploads/1763643611_691f10dbd100a.png', '8kjqosfqk.png'),
-(12, 7, 'progress_uploads/1763643611_691f10dbd1f8d.pdf', 'A Tool for Subscriptions Startups – Responses.pdf'),
-(13, 8, 'progress_uploads/1763707875_69200be3f232e.pdf', 'PROGRESS REPORT NI RON6.pdf');
-
 -- --------------------------------------------------------
 
 --
@@ -531,7 +397,7 @@ INSERT INTO `progress_files` (`file_id`, `progress_id`, `file_path`, `original_n
 
 CREATE TABLE `projects` (
   `project_id` int(11) NOT NULL,
-  `owner_id` int(11) NOT NULL,
+  `relationship_id` int(11) DEFAULT NULL,
   `project_title` varchar(200) NOT NULL,
   `project_description` text NOT NULL,
   `project_location` text NOT NULL,
@@ -543,22 +409,8 @@ CREATE TABLE `projects` (
   `type_id` int(11) NOT NULL,
   `to_finish` int(11) DEFAULT NULL,
   `project_status` enum('open','bidding_closed','in_progress','completed','terminated','deleted_post') DEFAULT 'open',
-  `selected_contractor_id` int(11) DEFAULT NULL,
-  `bidding_deadline` timestamp NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `selected_contractor_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `projects`
---
-
-INSERT INTO `projects` (`project_id`, `owner_id`, `project_title`, `project_description`, `project_location`, `budget_range_min`, `budget_range_max`, `lot_size`, `floor_area`, `property_type`, `type_id`, `to_finish`, `project_status`, `selected_contractor_id`, `bidding_deadline`, `created_at`, `updated_at`) VALUES
-(1, 4, 'SAMPLE TITLE', 'SAMPLE TITLE DESC', 'TUMAGA', 1000000.00, 10000000.00, 235, 135, 'Residential', 1, 12, 'bidding_closed', 1, '2025-11-20 15:14:34', '2025-11-05 12:14:31', '2025-11-20 15:14:34'),
-(3, 10, 'EYY WASAP', 'WSSAP', 'ASDAS', 20000.00, 100000.00, 123, 123, 'Commercial', 1, 10, 'bidding_closed', 1, '2025-11-14 08:08:28', '2025-11-14 07:54:01', '2025-11-14 08:08:28'),
-(4, 5, 'ASD', 'ASDASDAD', 'ASDSD', 1000.00, 2000.00, 23, 23, 'Residential', 7, 10, 'bidding_closed', 2, '2025-11-14 08:21:36', '2025-11-14 08:21:36', '2025-11-14 08:21:36'),
-(5, 10, 'NIGGA CARL WAYNE ', 'SDSDVSDV', 'SDVSDV', 9000.00, 10000.00, 232, 212, 'Industrial', 2, 12, 'bidding_closed', 1, '2025-11-15 12:38:10', '2025-11-15 12:38:10', '2025-11-15 12:38:10'),
-(6, 4, 'PROJKSFSFCJAFCLAK', 'AFAFAWEFWEF', 'ASDweref', 1000.00, 2000.00, 10, 10, 'Commercial', 1, 2, 'bidding_closed', 1, '2025-11-21 06:46:35', '2025-11-21 06:46:35', '2025-11-21 06:46:35');
 
 -- --------------------------------------------------------
 
@@ -572,6 +424,24 @@ CREATE TABLE `project_files` (
   `file_type` enum('building permit','blueprint','desired design','title','others') NOT NULL,
   `file_path` varchar(255) NOT NULL,
   `uploaded_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `project_relationships`
+--
+
+CREATE TABLE `project_relationships` (
+  `rel_id` int(11) NOT NULL,
+  `owner_id` int(11) NOT NULL,
+  `selected_contractor_id` int(11) DEFAULT NULL,
+  `project_post_status` enum('under_review','deleted','approved','rejected') NOT NULL DEFAULT 'under_review',
+  `admin_reason` text DEFAULT NULL COMMENT 'Reason for post rejection by admin',
+  `reason` text DEFAULT NULL,
+  `bidding_due` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -600,24 +470,6 @@ CREATE TABLE `property_owners` (
   `verification_date` timestamp NOT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `property_owners`
---
-
-INSERT INTO `property_owners` (`owner_id`, `user_id`, `last_name`, `middle_name`, `first_name`, `phone_number`, `address`, `valid_id_id`, `valid_id_photo`, `valid_id_back_photo`, `police_clearance`, `date_of_birth`, `age`, `occupation_id`, `occupation_other`, `verification_status`, `verification_date`, `created_at`) VALUES
-(1, 1, 'Jimenez', NULL, 'Shane Hart', '09926314071', 'Sapphire, Tumaga, City of Zamboanga, Zamboanga Del Sur, 7000', 9, 'validID/KRZqUkJdJ5MNgo0sc8XJzv34JUAuwAWnyqiBNRUj.jpg', '', 'policeClearance/93cTyjFuXGYfruccxpqlLcB0PpEfVdqLA3U22nAA.jpg', '2004-10-01', 21, 19, NULL, 'pending', '0000-00-00 00:00:00', '2025-11-01 04:49:04'),
-(2, 2, 'Hart', NULL, 'Shane', '09926354567', 'aasdasd, Canangca-an, Corella, Bohol, 7000', 9, 'owner_documents/1762064843_valid_id_557969314_2535718666804066_2236441680610974884_n.png', '', 'owner_documents/1762064843_police_557969314_2535718666804066_2236441680610974884_n.png', '1997-10-15', 28, 20, NULL, 'pending', '0000-00-00 00:00:00', '2025-11-01 22:27:25'),
-(4, 10, 'ahdbahs', NULL, 'ahdbahs', '09926314071', 'sapphire, Pongol, Libona, Bukidnon, 7000', 18, 'validID/J2N7HRzSSqIZjj1aizDXhROD3JsHGhOxxM9TVTiR.png', '', 'policeClearance/S2Q5O9Oq7ZzYxeBXE9ZoIAQhHtXjeFVkKI0l9Rsz.png', '1985-06-11', 40, 23, NULL, 'pending', '2025-11-02 08:03:30', '2025-11-02 00:03:30'),
-(5, 11, 'ahdbahsahdbahs', NULL, 'ahdbahahdbahss', '09926314033', 'sapphire, District II (Pob.), Gainza, Camarines Sur, 7000', 18, 'owner_documents/1762072939_valid_id_566669930_786139620958735_7349053833120477730_n.jpg', '', 'owner_documents/1762072939_police_557432724_783418661334280_8030311886887135624_n.jpg', '2000-02-07', 25, 23, NULL, 'pending', '2025-11-02 08:42:25', '2025-11-02 00:42:25'),
-(6, 12, 'Kulong', 'Gellecania', 'Rone', '09926318765', 'Emerald, Tumaga, City of Zamboanga, Zamboanga Del Sur, 7000', 9, 'validID/pGZFZygIzYsijS3D520jq8Dka455HTdM9ph95jhX.png', '', 'policeClearance/VFBu06m9DcmkOifKVaUhRX7djn2X8wgQTiTMFJ5G.png', '2005-07-26', 20, 23, NULL, 'pending', '2025-11-02 09:05:44', '2025-11-02 01:05:44'),
-(7, 13, 'asds', NULL, 'asds', '09923456453', 'sdfdf, Lagundi, Rapu-Rapu, Albay, 7000', 2, 'validID/SvmYD784lHdtiJyolb6SxMfG9c694ofSwknfWET5.png', '', 'policeClearance/v7ZqxEClr4T9FAPw5uTPzd8ge37gNFV1aYGqTTND.jpg', '1992-06-08', 33, 8, NULL, 'pending', '2025-11-11 14:35:01', '2025-11-11 06:35:01'),
-(8, 14, 'asdasd', 'asdasdasdasd', 'asdasdasd', '09926314071', 'asdad, Carawisan II, San Remigio, Antique, 7000', 18, 'validID/hsi5cyN8e3cyBbWXLykWhVDNPIYhFO1WnjJ5I1sh.png', '', 'policeClearance/aKLC85CcoI9JbFv6xKzCVTruAyBF23khvJe2MoYr.pdf', '1995-10-24', 30, 8, NULL, 'pending', '2025-11-11 14:41:52', '2025-11-11 06:41:52'),
-(9, 22, 'Asda', NULL, 'Asda', '09923314071', 'aasdasd, Busali, Biliran, Biliran, 7000', 2, 'validID/SCnbV5G7WkgHUUBN8wmneIYHsJkCobW2GJxx5FWU.jpg', 'validID/kJd5srsT48ZirmlCwrJSOPuKF2PGINF20HG1nE9Z.jpg', 'policeClearance/FOSFoQpxmIYo2iXxESAfMSgZQcAbvySf0voB1c17.jpg', '1999-01-05', 26, 23, NULL, 'pending', '2025-11-13 15:20:42', '2025-11-13 07:20:42'),
-(10, 23, 'Sdsdf', 'Sdfsd', 'Sds', '09926314987', 'sdfsdfssd, Buahan, City of Lamitan, Basilan, 7000', 2, 'validID/OCFo8HJJwfaRRhguC1dIdczuhAs6K6TzMXhSRYqo.jpg', 'validID/Tjx0eFN8ftFmr7tAM9PkfMqWXqTGKmhfcOjmPhb5.jpg', 'policeClearance/FgOpbkfe0SEs3cbcVbG2o3sNEWFiunkNxXH4gJZU.jpg', '2003-06-10', 22, 23, NULL, 'pending', '2025-11-13 17:44:26', '2025-11-13 09:44:26'),
-(11, 25, 'Hart', NULL, 'Shane', '09926354567', 'aasdasd, Loo, Buguias, Benguet, 7000', 2, 'validID/dZBohE5Jfgx3Waz3PcygOoiir47FYrL6WgaA7pSl.jpg', 'validID/H9kN5gESlOAHUPpgDPS48ckbsWK6rkPkXGE2zrwz.jpg', 'policeClearance/ydazaxBY9v79UL7vtkTREyCI7c9BwCKSqMmXU9Jc.jpg', '1992-03-04', 33, 23, NULL, 'pending', '2025-11-15 13:36:42', '2025-11-15 05:36:42'),
-(12, 26, 'Yut7i6rifytk', 'Trytkfyit', 'Ljuguyguyl', '09926354987', 'aasdasd, Lengaoan, Buguias, Benguet, 7000', 18, 'validID/SUPYW6qWZbdHTjRfnXgUgwyZVshmGGE33XfElzkj.jpg', 'validID/fMv60QxefoLchPyXcmDcZWFc6tM95d5BelX37GVq.jpg', 'policeClearance/kSmRaUAvyQ1wCiJUkuUEpN4VEioBk3ZJkLJ7DRWk.jpg', '1999-02-02', 26, 17, NULL, 'pending', '2025-11-16 11:20:07', '2025-11-16 03:20:07'),
-(13, 27, 'Asdsa', NULL, 'Asda', '09926314071', 'aasdasd, Bunga, Cabucgayan, Biliran, 7000', 2, 'validID/ZHvs9fU7rFasEu2BvurDVaKjsWu4GB5059egIzQV.png', 'validID/ee64nJxOD8AM4DxJjeyIoArF7mGVD80jrmOKxRyx.png', 'policeClearance/KsLAb117HjwIMAqfQzwYkwnkCTxfCTx92NpO7MRj.png', '2001-02-08', 24, 22, NULL, 'pending', '2025-11-19 00:17:48', '2025-11-18 16:17:48');
 
 -- --------------------------------------------------------
 
@@ -681,7 +533,7 @@ INSERT INTO `users` (`user_id`, `profile_pic`, `username`, `email`, `password_ha
 (12, NULL, 'ronron', 'ronron@gmail.com', '$2y$12$039Xd8JzNUj9XDWfQXosEePFngCgXAXcg8Ca9hIdtrI3tOnmKnPZS', '$2y$12$sxa0MzGRsL2DbUSScb.T0eYjBOTo/onaLyRty8O5EFE840SSpU6y2', 'property_owner', 1, 1, '2025-11-02 01:05:44', '2025-11-12 16:05:18'),
 (13, NULL, 'Ronie', 'rone@gmail.com', '$2y$12$sgNYpj05G27xtZxpZhbBu.Rl8gpGzhVCft2JA18SaTamZV2Mz1J.a', '$2y$12$DCQDCvU8tZEtWMI1tbOFkubyIsG2zlVuGlIks4h7xiMvu/eSU1E0S', 'property_owner', 0, 1, '2025-11-11 06:35:01', '2025-11-11 06:35:01'),
 (14, NULL, 'asdas', 'daasdad@gmail.com', '$2y$12$cK8JLtzQ64vqkYOwZhesoeNP/VdfF8Ldt4V3y7zqvxAMOl59uob5y', '$2y$12$Ma9sbAx.P.Yj0xqUbtMTfeTiPS1gLzgw6Rs.erSXCRgns.SbHaYz.', 'property_owner', 0, 1, '2025-11-11 06:41:52', '2025-11-11 06:41:52'),
-(15, NULL, 'werwrwerwr', 'krystalbwerongow24@gmail.com', '$2y$12$chxZo.smd2kMDDp5sudBI.h6T69dSbiDHgetI7bM93LSynnud8Mo2', '$2y$12$2iFEJDBxObsUuT11/KT9He4GPA.SUYwkqLO96MSw1ZUC4tLK9wb7e', 'contractor', 0, 1, '2025-11-11 06:51:26', '2025-11-11 06:51:26'),
+(15, NULL, 'werwrwerwr', 'krystalbwerongow24@gmail.com', '$2y$12$chxZo.smd2kMDDp5sudBI.h6T69dSbiDHgetI7bM93LSynnud8Mo2', '$2y$12$2iFEJDBxObsUuT11/KT9He4GPA.SUYwkqLO96MSw1ZUC4tLK9wb7e', 'contractor', 1, 1, '2025-11-11 06:51:26', '2025-11-21 15:57:59'),
 (16, NULL, 'asdasd', 'asdada@gmail.com', '$2y$12$7pQfbTa/4jB7iGe19dme.u39zldsnv2W6LcZr2Kr3ai8vws3acmB.', '$2y$12$lNHrR94yYKjiH5l6.r0Up.Y28SGKlnpHwnNbH2yS8XPM3AHRzQLlm', 'contractor', 0, 0, '2025-11-13 06:26:39', '2025-11-13 06:26:39'),
 (17, NULL, 'adas', 'dasdaasd@gmail.com', '$2y$12$2I8xH1G.T869ppuheRHMc.f28tM.5C/XmCD1Iwe0DruyIDmq.wHpi', '$2y$12$9cfp.5hwS.wmHmAn0Srh5OBn8J3Z/Z59cy7KIA0ynOtUbqgwr7WjK', 'property_owner', 0, 0, '2025-11-13 06:40:49', '2025-11-13 06:40:49'),
 (18, NULL, '3rwer', 'wewerw@gmail.com', '$2y$12$GNb65rCw1nsra3qw3QnofO4VUdyOFwoFJGqfYp3KWcNnHX40s4zo6', '$2y$12$q7.7Yy0rzTYC8r31Kbq/LetK0WFNIcLU2Avhu.vQGGWpvJhU12RrK', 'property_owner', 0, 0, '2025-11-13 06:51:12', '2025-11-13 06:51:12'),
@@ -879,8 +731,8 @@ ALTER TABLE `progress_files`
 --
 ALTER TABLE `projects`
   ADD PRIMARY KEY (`project_id`),
-  ADD KEY `owner_id` (`owner_id`),
-  ADD KEY `type_id` (`type_id`);
+  ADD KEY `fk_projects_type_id` (`type_id`),
+  ADD KEY `fk_projects_relationship_id` (`relationship_id`);
 
 --
 -- Indexes for table `project_files`
@@ -888,6 +740,14 @@ ALTER TABLE `projects`
 ALTER TABLE `project_files`
   ADD PRIMARY KEY (`file_id`),
   ADD KEY `project_id` (`project_id`);
+
+--
+-- Indexes for table `project_relationships`
+--
+ALTER TABLE `project_relationships`
+  ADD PRIMARY KEY (`rel_id`),
+  ADD KEY `fk_projectrel_owner` (`owner_id`),
+  ADD KEY `fk_projectrel_contractor` (`selected_contractor_id`);
 
 --
 -- Indexes for table `property_owners`
@@ -941,7 +801,7 @@ ALTER TABLE `admin_users`
 -- AUTO_INCREMENT for table `bids`
 --
 ALTER TABLE `bids`
-  MODIFY `bid_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `bid_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `bid_files`
@@ -953,31 +813,31 @@ ALTER TABLE `bid_files`
 -- AUTO_INCREMENT for table `contractors`
 --
 ALTER TABLE `contractors`
-  MODIFY `contractor_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `contractor_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `contractor_types`
 --
 ALTER TABLE `contractor_types`
-  MODIFY `type_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `type_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `contractor_users`
 --
 ALTER TABLE `contractor_users`
-  MODIFY `contractor_user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `contractor_user_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `disputes`
 --
 ALTER TABLE `disputes`
-  MODIFY `dispute_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
+  MODIFY `dispute_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `dispute_files`
 --
 ALTER TABLE `dispute_files`
-  MODIFY `file_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
+  MODIFY `file_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `messages`
@@ -989,19 +849,19 @@ ALTER TABLE `messages`
 -- AUTO_INCREMENT for table `milestones`
 --
 ALTER TABLE `milestones`
-  MODIFY `milestone_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `milestone_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `milestone_items`
 --
 ALTER TABLE `milestone_items`
-  MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `milestone_payments`
 --
 ALTER TABLE `milestone_payments`
-  MODIFY `payment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `payment_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `notifications`
@@ -1019,7 +879,7 @@ ALTER TABLE `occupations`
 -- AUTO_INCREMENT for table `payment_plans`
 --
 ALTER TABLE `payment_plans`
-  MODIFY `plan_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `plan_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `platform_payments`
@@ -1031,19 +891,19 @@ ALTER TABLE `platform_payments`
 -- AUTO_INCREMENT for table `progress`
 --
 ALTER TABLE `progress`
-  MODIFY `progress_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `progress_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `progress_files`
 --
 ALTER TABLE `progress_files`
-  MODIFY `file_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `file_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `projects`
 --
 ALTER TABLE `projects`
-  MODIFY `project_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `project_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `project_files`
@@ -1052,10 +912,16 @@ ALTER TABLE `project_files`
   MODIFY `file_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `project_relationships`
+--
+ALTER TABLE `project_relationships`
+  MODIFY `rel_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `property_owners`
 --
 ALTER TABLE `property_owners`
-  MODIFY `owner_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `owner_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `qr_codes`
@@ -1196,14 +1062,21 @@ ALTER TABLE `progress_files`
 -- Constraints for table `projects`
 --
 ALTER TABLE `projects`
-  ADD CONSTRAINT `projects_ibfk_1` FOREIGN KEY (`owner_id`) REFERENCES `property_owners` (`owner_id`),
-  ADD CONSTRAINT `projects_ibfk_2` FOREIGN KEY (`type_id`) REFERENCES `contractor_types` (`type_id`);
+  ADD CONSTRAINT `fk_projects_relationship_id` FOREIGN KEY (`relationship_id`) REFERENCES `project_relationships` (`rel_id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_projects_type_id` FOREIGN KEY (`type_id`) REFERENCES `contractor_types` (`type_id`);
 
 --
 -- Constraints for table `project_files`
 --
 ALTER TABLE `project_files`
   ADD CONSTRAINT `project_files_ibfk_1` FOREIGN KEY (`project_id`) REFERENCES `projects` (`project_id`);
+
+--
+-- Constraints for table `project_relationships`
+--
+ALTER TABLE `project_relationships`
+  ADD CONSTRAINT `fk_projectrel_contractor` FOREIGN KEY (`selected_contractor_id`) REFERENCES `contractors` (`contractor_id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_projectrel_owner` FOREIGN KEY (`owner_id`) REFERENCES `property_owners` (`owner_id`);
 
 --
 -- Constraints for table `property_owners`

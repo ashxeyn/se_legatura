@@ -75,7 +75,7 @@
                             <strong>{{ $project->project_title }}</strong>
                                 @if(isset($isContractor) && $isContractor && $project->project_status === 'bidding_closed' && isset($project->milestone_status))
                                     @if($project->milestone_status === 'set_up')
-                                        <span class="status-badge status-milestone-setup">Milestone Set Up</span>
+                                        <span class="status-badge status-milestone-setup">Milestone Done</span>
                                     @elseif($project->milestone_status === 'not_set_up')
                                         <span class="status-badge status-milestone-not-setup">Milestone Not Set Up Yet</span>
                                     @else

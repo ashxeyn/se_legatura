@@ -566,7 +566,244 @@
             window.existingBid = null;
         @endif
     </script>
-    <script src="{{ asset('js/contractor.js') }}"></script>
+    <script>
+        let deletedFiles = [];
+        let selectedFiles = [];
+
+        function openBidModal(mode) {
+            const modal = document.getElementById('bidModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const formMethod = document.getElementById('form_method');
+            const submitBtn = document.getElementById('submitBtn');
+            const bidIdInput = document.getElementById('bid_id');
+
+            if (mode === 'edit') {
+                modalTitle.textContent = 'Edit Bid';
+                formMethod.value = 'PUT';
+                submitBtn.textContent = 'Update Bid';
+                
+                // Ensure bid_id is set and populate form fields with existing bid data
+                if (window.existingBid && window.existingBid.bid_id) {
+                    bidIdInput.value = window.existingBid.bid_id;
+                    
+                    const proposedCost = document.getElementById('proposed_cost');
+                    const estimatedTimeline = document.getElementById('estimated_timeline');
+                    const contractorNotes = document.getElementById('contractor_notes');
+                    
+                    // Set values if they exist and fields are empty
+                    if (proposedCost && !proposedCost.value && window.existingBid.proposed_cost) {
+                        proposedCost.value = window.existingBid.proposed_cost;
+                    }
+                    if (estimatedTimeline && !estimatedTimeline.value && window.existingBid.estimated_timeline) {
+                        estimatedTimeline.value = window.existingBid.estimated_timeline;
+                    }
+                    if (contractorNotes && !contractorNotes.value.trim() && window.existingBid.contractor_notes) {
+                        contractorNotes.value = window.existingBid.contractor_notes;
+                    }
+                }
+            } else {
+                modalTitle.textContent = 'Apply for Bid';
+                formMethod.value = 'POST';
+                submitBtn.textContent = 'Submit Bid';
+                bidIdInput.value = '';
+            }
+
+            // Clear error/success messages
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            
+            modal.style.display = 'block';
+        }
+
+        function closeBidModal() {
+            document.getElementById('bidModal').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            deletedFiles = [];
+            selectedFiles = [];
+            document.getElementById('fileList').innerHTML = '';
+            document.getElementById('bid_files').value = '';
+        }
+
+
+        // File upload handling
+        const fileInput = document.getElementById('bid_files');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileList = document.getElementById('fileList');
+
+        fileInput.addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        fileUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        function handleFiles(files) {
+            for (let file of files) {
+                selectedFiles.push(file);
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
+                    <span class="remove-file" onclick="removeFile('${file.name}')">×</span>
+                `;
+                fileList.appendChild(li);
+            }
+        }
+
+        function removeFile(fileName) {
+            selectedFiles = selectedFiles.filter(f => f.name !== fileName);
+            updateFileList();
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach(file => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
+                    <span class="remove-file" onclick="removeFile('${file.name}')">×</span>
+                `;
+                fileList.appendChild(li);
+            });
+        }
+
+        function deleteExistingFile(fileId) {
+            if (confirm('Are you sure you want to delete this file?')) {
+                deletedFiles.push(fileId);
+                document.getElementById('file-' + fileId).style.display = 'none';
+            }
+        }
+
+        // Form submission
+        document.getElementById('bidForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const formMethod = document.getElementById('form_method').value;
+            const projectId = document.querySelector('input[name="project_id"]').value;
+            const bidId = document.getElementById('bid_id').value;
+
+            // Get CSRF token from meta tag or form
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                             document.querySelector('input[name="_token"]')?.value;
+            
+            if (!csrfToken) {
+                alert('CSRF token not found. Please refresh the page.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = formMethod === 'PUT' ? 'Update Bid' : 'Submit Bid';
+                return;
+            }
+
+            formData.append('_token', csrfToken);
+            
+            // Get form values
+            const proposedCost = document.getElementById('proposed_cost').value.trim();
+            const estimatedTimeline = document.getElementById('estimated_timeline').value.trim();
+            const contractorNotes = document.getElementById('contractor_notes').value.trim();
+
+            // Validate required fields
+            if (!proposedCost || !estimatedTimeline) {
+                document.getElementById('errorMessage').textContent = 'Please fill in all required fields.';
+                document.getElementById('errorMessage').style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = formMethod === 'PUT' ? 'Update Bid' : 'Submit Bid';
+                return;
+            }
+
+            formData.append('proposed_cost', proposedCost);
+            formData.append('estimated_timeline', estimatedTimeline);
+            formData.append('contractor_notes', contractorNotes);
+
+            // Add files
+            selectedFiles.forEach(file => {
+                formData.append('bid_files[]', file);
+            });
+
+            // Add deleted files
+            deletedFiles.forEach(fileId => {
+                formData.append('delete_files[]', fileId);
+            });
+
+            if (formMethod === 'PUT') {
+                if (!bidId) {
+                    document.getElementById('errorMessage').textContent = 'Bid ID is required for update.';
+                    document.getElementById('errorMessage').style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Update Bid';
+                    return;
+                }
+                formData.append('bid_id', bidId);
+                formData.append('_method', 'PUT');
+            } else {
+                formData.append('project_id', projectId);
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            try {
+                let url = '/contractor/bids';
+                if (formMethod === 'PUT') {
+                    url = '/contractor/bids/' + bidId;
+                }
+
+                const response = await fetch(url, {
+                    method: formMethod === 'PUT' ? 'POST' : 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('successMessage').textContent = data.message;
+                    document.getElementById('successMessage').style.display = 'block';
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    document.getElementById('errorMessage').textContent = data.message;
+                    document.getElementById('errorMessage').style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = formMethod === 'PUT' ? 'Update Bid' : 'Submit Bid';
+                }
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+                document.getElementById('errorMessage').style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = formMethod === 'PUT' ? 'Update Bid' : 'Submit Bid';
+            }
+        });
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const bidModal = document.getElementById('bidModal');
+            const cancelBidModal = document.getElementById('cancelBidModal');
+            if (event.target == bidModal) {
+                closeBidModal();
+            }
+            if (event.target == cancelBidModal && window.CancelBidModal) {
+                window.CancelBidModal.close();
+            }
+        }
+    </script>
 </body>
 </html>
 

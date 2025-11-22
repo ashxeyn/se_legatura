@@ -3,7 +3,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2 id="modalTitle">Apply for Bid</h2>
-            <span class="close" onclick="if (typeof closeBidModal !== 'undefined') closeBidModal();">&times;</span>
+            <span class="close" onclick="closeBidModal()">&times;</span>
         </div>
         <div class="modal-body">
             <div id="errorMessage" class="error-message" style="display: none;"></div>
@@ -52,14 +52,14 @@
                                 <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
                                     {{ $file->file_name }}
                                 </a>
-                                <span class="delete-file" onclick="if (typeof deleteExistingFile !== 'undefined') deleteExistingFile({{ $file->file_id }})">×</span>
+                                <span class="delete-file" onclick="deleteExistingFile({{ $file->file_id }})">×</span>
                             </div>
                         @endforeach
                     </div>
                 @endif
 
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="if (typeof closeBidModal !== 'undefined') closeBidModal();">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeBidModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="submitBtn">Submit Bid</button>
                 </div>
             </form>

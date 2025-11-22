@@ -412,7 +412,153 @@
         </form>
     </div>
 
-    <script src="{{ asset('js/owner.js') }}"></script>
+    <script>
+        // File upload handling - consistent with progress/payment modals
+        function handleFileSelection(input, containerId) {
+            if (input.files && input.files.length > 0) {
+                const file = input.files[0];
+                const container = document.getElementById(containerId);
+                const fileGroup = input.closest('.file-input-group');
+                const removeBtn = fileGroup.querySelector('.remove-file-btn');
+                
+                // Hide input, show file name
+                input.classList.add('has-file');
+                
+                // Create file name display
+                let fileNameDisplay = fileGroup.querySelector('.file-name-display');
+                if (!fileNameDisplay) {
+                    fileNameDisplay = document.createElement('div');
+                    fileNameDisplay.className = 'file-name-display visible';
+                    fileGroup.insertBefore(fileNameDisplay, removeBtn);
+                }
+                fileNameDisplay.textContent = '📄 ' + file.name;
+                fileNameDisplay.classList.add('visible');
+                
+                // Show remove button
+                if (removeBtn) removeBtn.style.display = 'inline-block';
+                
+                // Show "Add More Files" button if not required field
+                if (!input.hasAttribute('required')) {
+                    const addMoreBtn = container.parentElement.querySelector('.add-more-files-btn');
+                    if (addMoreBtn) addMoreBtn.classList.add('visible');
+                }
+            }
+        }
+
+        function removeFileInput(btn, containerId) {
+            const fileGroup = btn.closest('.file-input-group');
+            const input = fileGroup.querySelector('.evidence-file-input');
+            const fileNameDisplay = fileGroup.querySelector('.file-name-display');
+            
+            // Reset input
+            input.value = '';
+            input.classList.remove('has-file');
+            if (fileNameDisplay) {
+                fileNameDisplay.remove();
+            }
+            btn.style.display = 'none';
+            
+            // Hide "Add More Files" button if no files
+            const container = document.getElementById(containerId);
+            const fileGroups = container.querySelectorAll('.file-input-group');
+            const hasFiles = Array.from(fileGroups).some(group => {
+                const fileInput = group.querySelector('.evidence-file-input');
+                return fileInput && fileInput.files && fileInput.files.length > 0;
+            });
+            
+            if (!hasFiles) {
+                const addMoreBtn = container.parentElement.querySelector('.add-more-files-btn');
+                if (addMoreBtn) addMoreBtn.classList.remove('visible');
+            }
+        }
+
+        function addMoreFiles(containerId, fieldName) {
+            const container = document.getElementById(containerId);
+            const fileGroups = container.querySelectorAll('.file-input-group');
+            
+            if (fileGroups.length >= 10) {
+                alert('Maximum of 10 files allowed');
+                return;
+            }
+            
+            const existingInput = container.querySelector('.evidence-file-input');
+            const acceptAttr = existingInput ? existingInput.getAttribute('accept') : '';
+            const isMultiple = fieldName === 'others';
+            
+            const newFileGroup = document.createElement('div');
+            newFileGroup.className = 'file-input-group';
+            
+            const newInput = document.createElement('input');
+            newInput.type = 'file';
+            newInput.className = 'evidence-file-input';
+            newInput.accept = acceptAttr;
+            if (isMultiple) {
+                newInput.name = 'others[]';
+            } else {
+                newInput.name = fieldName;
+            }
+            newInput.addEventListener('change', function() {
+                handleFileSelection(this, containerId);
+            });
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-file-btn';
+            removeBtn.textContent = 'Remove';
+            removeBtn.onclick = function() {
+                removeFileInput(this, containerId);
+                updateRemoveButtons(containerId);
+            };
+            
+            newFileGroup.appendChild(newInput);
+            newFileGroup.appendChild(removeBtn);
+            container.appendChild(newFileGroup);
+            
+            updateRemoveButtons(containerId);
+        }
+
+        function updateRemoveButtons(containerId) {
+            const container = document.getElementById(containerId);
+            const fileGroups = container.querySelectorAll('.file-input-group');
+            
+            fileGroups.forEach((group, index) => {
+                const removeBtn = group.querySelector('.remove-file-btn');
+                const fileInput = group.querySelector('.evidence-file-input');
+                
+                if (removeBtn && fileInput) {
+                    const hasFile = fileInput.files && fileInput.files.length > 0;
+                    const shouldShow = fileGroups.length > 1 || hasFile;
+                    removeBtn.style.display = shouldShow ? 'inline-block' : 'none';
+                }
+            });
+        }
+
+        // Initialize file inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInputs = document.querySelectorAll('.evidence-file-input');
+            fileInputs.forEach(input => {
+                const containerId = input.closest('[id$="-upload-container"]')?.id;
+                if (containerId) {
+                    input.addEventListener('change', function() {
+                        handleFileSelection(this, containerId);
+                        updateRemoveButtons(containerId);
+                    });
+                }
+            });
+        });
+
+        // Form validation
+        document.getElementById('projectForm').addEventListener('submit', function(e) {
+            const budgetMin = parseFloat(document.querySelector('input[name="budget_range_min"]').value);
+            const budgetMax = parseFloat(document.querySelector('input[name="budget_range_max"]').value);
+
+            if (budgetMax < budgetMin) {
+                e.preventDefault();
+                alert('Maximum budget must be greater than or equal to minimum budget.');
+                return false;
+            }
+        });
+    </script>
 </body>
 </html>
 
