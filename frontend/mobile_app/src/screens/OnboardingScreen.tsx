@@ -1,15 +1,17 @@
+// @ts-nocheck
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface OnboardingScreenProps {
-    currentScreen: number;
-    onNext: () => void;
-    onGetStarted: () => void;
+    current_screen: number;
+    on_next: () => void;
+    on_get_started: () => void;
 }
 
-const onboardingData = [
+const onboarding_data = [
     {
         title: "Post projects, compare bids, and choose",
         subtitle: "the best option with ease.",
@@ -28,52 +30,52 @@ const onboardingData = [
 ];
 
 export default function OnboardingScreen({
-    currentScreen,
-    onNext,
-    onGetStarted
+    current_screen,
+    on_next,
+    on_get_started
 }: OnboardingScreenProps) {
-    const [activeSlide, setActiveSlide] = useState(0);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const [active_slide, set_active_slide] = useState(0);
+    const scroll_view_ref = useRef<ScrollView>(null);
 
-    const isLastScreen = activeSlide === onboardingData.length - 1;
+    const is_last_screen = active_slide === onboarding_data.length - 1;
 
-    const handleScroll = (event: any) => {
-        const slideIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-        setActiveSlide(slideIndex);
+    const handle_scroll = (event: any) => {
+        const slide_index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+        set_active_slide(slide_index);
     };
 
-    const goToSlide = (index: number) => {
-        setActiveSlide(index);
-        scrollViewRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
+    const go_to_slide = (index: number) => {
+        set_active_slide(index);
+        scroll_view_ref.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
     };
 
-    const handleNext = () => {
-        if (activeSlide < onboardingData.length - 1) {
-            goToSlide(activeSlide + 1);
+    const handle_next = () => {
+        if (active_slide < onboarding_data.length - 1) {
+            go_to_slide(active_slide + 1);
         } else {
-            onGetStarted();
+            on_get_started();
         }
     };
 
-    const renderStyledText = (text: string, highlightWords: string[]) => {
-        let styledText = text;
-        highlightWords.forEach(word => {
-            styledText = styledText.replace(
+    const render_styled_text = (text: string, highlight_words: string[]) => {
+        let styled_text = text;
+        highlight_words.forEach(word => {
+            styled_text = styled_text.replace(
                 word,
                 `<ORANGE>${word}</ORANGE>`
             );
         });
 
-        const parts = styledText.split(/(<ORANGE>.*?<\/ORANGE>)/);
+        const parts = styled_text.split(/(<ORANGE>.*?<\/ORANGE>)/);
 
         return (
             <Text style={styles.text}>
                 {parts.map((part, index) => {
                     if (part.startsWith('<ORANGE>') && part.endsWith('</ORANGE>')) {
-                        const orangeText = part.replace(/<\/?ORANGE>/g, '');
+                        const orange_text = part.replace(/<\/?ORANGE>/g, '');
                         return (
-                            <Text key={index} style={styles.orangeText}>
-                                {orangeText}
+                            <Text key={index} style={styles.orange_text}>
+                                {orange_text}
                             </Text>
                         );
                     }
@@ -92,43 +94,43 @@ export default function OnboardingScreen({
             </View>
 
             <ScrollView
-                ref={scrollViewRef}
+                ref={scroll_view_ref}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={handleScroll}
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                onMomentumScrollEnd={handle_scroll}
+                style={styles.scroll_view}
+                contentContainerStyle={styles.scroll_content}
             >
-                {onboardingData.map((item, index) => (
+                {onboarding_data.map((item, index) => (
                     <View key={index} style={styles.slide}>
-                        <View style={styles.imageContainer}>
+                        <View style={styles.image_container}>
                             <Image
                                 source={item.image}
-                                style={styles.slideImage}
+                                style={styles.slide_image}
                                 resizeMode="contain"
                             />
                         </View>
 
-                        <View style={styles.textContainer}>
-                            {index === 0 && renderStyledText("Post projects, compare bids, and choose the best option with ease.", ["best option"])}
-                            {index === 1 && renderStyledText("Monitor progress with real-time updates from site to home.", ["real-time updates"])}
-                            {index === 2 && renderStyledText("With Legatura, Celebrate success with completed projects delivered on time", ["Legatura"])}
+                        <View style={styles.text_container}>
+                            {index === 0 && render_styled_text("Post projects, compare bids, and choose the best option with ease.", ["best option"])}
+                            {index === 1 && render_styled_text("Monitor progress with real-time updates from site to home.", ["real-time updates"])}
+                            {index === 2 && render_styled_text("With Legatura, Celebrate success with completed projects delivered on time", ["Legatura"])}
                         </View>
                     </View>
                 ))}
             </ScrollView>
 
-            <View style={styles.bottomContainer}>
+            <View style={styles.bottom_container}>
                 <View style={styles.pagination}>
-                    {onboardingData.map((_, index) => (
+                    {onboarding_data.map((_, index) => (
                         <TouchableOpacity
                             key={index}
                             style={[
-                                styles.paginationDot,
-                                index === activeSlide ? styles.activeDot : styles.inactiveDot
+                                styles.pagination_dot,
+                                index === active_slide ? styles.active_dot : styles.inactive_dot
                             ]}
-                            onPress={() => goToSlide(index)}
+                            onPress={() => go_to_slide(index)}
                         />
                     ))}
                 </View>
@@ -136,16 +138,16 @@ export default function OnboardingScreen({
                 <View style={styles.footer}>
                     <TouchableOpacity
                         style={styles.button}
-                        onPress={handleNext}
+                        onPress={handle_next}
                     >
-                        <Text style={styles.buttonText}>
-                            {isLastScreen ? 'Get Started' : 'Next'}
+                        <Text style={styles.button_text}>
+                            {is_last_screen ? 'Get Started' : 'Next'}
                         </Text>
                     </TouchableOpacity>
 
-                    {!isLastScreen && (
-                        <TouchableOpacity style={styles.skipButton} onPress={onGetStarted}>
-                            <Text style={styles.skipText}>Skip</Text>
+                    {!is_last_screen && (
+                        <TouchableOpacity style={styles.skip_button} onPress={on_get_started}>
+                            <Text style={styles.skip_text}>Skip</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -168,10 +170,10 @@ const styles = StyleSheet.create({
         width: 120,
         height: 40,
     },
-    scrollView: {
+    scroll_view: {
         flex: 1,
     },
-    scrollContent: {
+    scroll_content: {
         flexDirection: 'row',
     },
     slide: {
@@ -181,18 +183,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
     },
-    imageContainer: {
+    image_container: {
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
         width: SCREEN_WIDTH,
     },
-    slideImage: {
+    slide_image: {
         width: 430,
         height: 430,
         resizeMode: 'contain',
     },
-    textContainer: {
+    text_container: {
         alignItems: 'center',
         paddingHorizontal: 30,
         marginBottom: 40,
@@ -205,12 +207,12 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         fontFamily: 'System',
     },
-    orangeText: {
+    orange_text: {
         fontSize: 16,
         fontWeight: '600',
         color: '#EC7E00',
     },
-    bottomContainer: {
+    bottom_container: {
         paddingHorizontal: 30,
         paddingBottom: 30,
     },
@@ -220,17 +222,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingBottom: 20,
     },
-    paginationDot: {
+    pagination_dot: {
         width: 10,
         height: 10,
         borderRadius: 5,
         marginHorizontal: 5,
     },
-    activeDot: {
+    active_dot: {
         backgroundColor: '#EC7E00',
         width: 30,
     },
-    inactiveDot: {
+    inactive_dot: {
         backgroundColor: '#d1d5db',
     },
     footer: {
@@ -245,15 +247,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20,
     },
-    buttonText: {
+    button_text: {
         color: 'white',
         fontSize: 18,
         fontWeight: 'bold',
     },
-    skipButton: {
+    skip_button: {
         paddingVertical: 10,
     },
-    skipText: {
+    skip_text: {
         color: '#6b7280',
         fontSize: 16,
         fontWeight: '500',

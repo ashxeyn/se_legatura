@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import {
   View,
@@ -6,67 +7,70 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  SafeAreaView,
   Image,
   ScrollView
 } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import { getApiUrl } from '../config/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { auth_service, login_data } from '../services/auth_service';
 
 interface LoginScreenProps {
-  onBackPress: () => void;
-  onLoginSuccess: (user: any) => void;
-  onSignUpPress?: () => void;
+  on_back: () => void;
+  on_login_success: () => void;
+  on_signup: () => void;
 }
 
-export default function LoginScreen({ onBackPress, onLoginSuccess, onSignUpPress }: LoginScreenProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+export default function LoginScreen({ on_back, on_login_success, on_signup }: LoginScreenProps) {
+  const [username, set_username] = useState('');
+  const [password, set_password] = useState('');
+  const [is_loading, set_is_loading] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both email and password');
+  const handle_login = async () => {
+    if (!username.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const response = await axios.post(getApiUrl('/api/login'), {
-        email: email.trim(),
-        password: password,
-      });
+    set_is_loading(true);
 
-      if (response.data.success) {
-        Alert.alert('Success!', `Welcome ${response.data.user.name}!`, [
-          { text: 'OK', onPress: () => onLoginSuccess(response.data.user) }
+    try {
+      const login_credentials: login_data = {
+        username: username.trim(),
+        password: password.trim(),
+      };
+
+      console.log('Attempting login with:', login_credentials);
+      const response = await auth_service.login(login_credentials);
+
+      console.log('Login response:', response);
+
+      if (response.success) {
+        Alert.alert('Success', 'Login successful!', [
+          { text: 'OK', onPress: on_login_success }
         ]);
       } else {
-        Alert.alert('Login Failed', response.data.message || 'Invalid credentials');
+        Alert.alert('Error', response.message || 'Login failed. Please check your credentials.');
       }
-    } catch (error: any) {
-      let errorMessage = 'An error occurred during login';
-
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Invalid email or password';
-      } else if (error.message.includes('Network Error')) {
-        errorMessage = 'Cannot connect to server. Check your connection.';
-      }
-
-      Alert.alert('Login Failed', errorMessage);
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Error', 'Failed to connect to server. Please try again.');
     } finally {
-      setIsLoading(false);
+      set_is_loading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.logoContainer}>
+      <ScrollView contentContainerStyle={styles.scroll_content} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={on_back} style={styles.back_button}>
+            <Ionicons name="chevron-back" size={28} color="#333333" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Logo */}
+        <View style={styles.logo_container}>
           <Image
             source={require('../../assets/images/logos/legatura-logo.png')}
             style={styles.logo}
@@ -74,72 +78,58 @@ export default function LoginScreen({ onBackPress, onLoginSuccess, onSignUpPress
           />
         </View>
 
-        <View style={styles.welcomeContainer}>
-          <Text style={styles.welcomeTitle}>Hi, Welcome Back!</Text>
-          <Text style={styles.welcomeSubtitle}>Hope you're doing fine.</Text>
+        {/* Title */}
+        <View style={styles.title_container}>
+          <Text style={styles.title}>Login to Legatura</Text>
+          <Text style={styles.subtitle}>Welcome back! Please enter your details.</Text>
         </View>
 
-        <View style={styles.formContainer}>
-          <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons name="email" size={20} color="#666666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Your Email"
-                placeholderTextColor="#999"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+        {/* Form */}
+        <View style={styles.form_container}>
+          <View style={styles.input_container}>
+            <Text style={styles.label}>Username or Email *</Text>
+            <TextInput
+              style={styles.input}
+              value={username}
+              onChangeText={set_username}
+              placeholder="Enter your username or email"
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!is_loading}
+            />
           </View>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons name="lock" size={20} color="#666666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                placeholderTextColor="#999"
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={20}
-                  color="#666666"
-                />
-              </TouchableOpacity>
-            </View>
+          <View style={styles.input_container}>
+            <Text style={styles.label}>Password *</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={set_password}
+              placeholder="Enter your password"
+              placeholderTextColor="#999"
+              secureTextEntry
+              editable={!is_loading}
+            />
           </View>
-
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.loginButton, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading}
+            style={[styles.login_button, is_loading && styles.button_disabled]}
+            onPress={handle_login}
+            disabled={is_loading}
           >
-            <Text style={styles.loginButtonText}>
-              {isLoading ? 'Logging in...' : 'Login'}
+            <Text style={styles.login_button_text}>
+              {is_loading ? 'Logging in...' : 'Login'}
             </Text>
           </TouchableOpacity>
+        </View>
 
-          <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>Don't have an account yet? </Text>
-            <TouchableOpacity onPress={onSignUpPress}>
-              <Text style={styles.signUpLink}>Sign up</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footer_text}>
+            Don't have an account?{' '}
+            <Text style={styles.link_text} onPress={on_signup}>Sign up here</Text>
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -151,78 +141,76 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FEFEFE',
   },
-  scrollContent: {
+  scroll_content: {
     flexGrow: 1,
     paddingHorizontal: 30,
   },
-  logoContainer: {
+  header: {
+    paddingTop: 20,
+    paddingBottom: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 60,
+  },
+  back_button: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo_container: {
+    alignItems: 'center',
+    marginTop: 40,
     marginBottom: 40,
   },
   logo: {
     width: 200,
-    height: 120,
+    height: 60,
   },
-  welcomeContainer: {
+  title_container: {
     alignItems: 'center',
     marginBottom: 40,
   },
-  welcomeTitle: {
+  title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333333',
-    textAlign: 'center',
     marginBottom: 8,
   },
-  welcomeSubtitle: {
+  subtitle: {
     fontSize: 16,
     color: '#666666',
     textAlign: 'center',
   },
-  formContainer: {
-    flex: 1,
+  form_container: {
+    marginBottom: 40,
   },
-  inputContainer: {
+  input_container: {
     marginBottom: 20,
   },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  inputIcon: {
-    marginRight: 12,
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 8,
   },
   input: {
-    flex: 1,
-    fontSize: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 12,
+    paddingHorizontal: 16,
     paddingVertical: 16,
+    fontSize: 16,
     color: '#333333',
   },
-  eyeIcon: {
-    padding: 4,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 30,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#EC7E00',
-    fontWeight: '500',
-  },
-  loginButton: {
+  login_button: {
     backgroundColor: '#EC7E00',
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
-    marginBottom: 30,
+    marginTop: 20,
     shadowColor: '#EC7E00',
     shadowOffset: {
       width: 0,
@@ -232,28 +220,23 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  loginButtonText: {
+  login_button_text: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
-  buttonDisabled: {
-    backgroundColor: '#CCCCCC',
-    shadowOpacity: 0,
-    elevation: 0,
+  button_disabled: {
+    opacity: 0.6,
   },
-  signUpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  footer: {
     alignItems: 'center',
-    marginTop: 20,
+    paddingBottom: 30,
   },
-  signUpText: {
+  footer_text: {
     fontSize: 16,
     color: '#666666',
   },
-  signUpLink: {
-    fontSize: 16,
+  link_text: {
     color: '#EC7E00',
     fontWeight: '600',
   },

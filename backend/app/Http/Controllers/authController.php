@@ -790,8 +790,8 @@ class authController extends Controller
         $step1 = Session::get('switch_contractor_step1');
         $step2 = Session::get('switch_contractor_step2');
 
-        \Log::info('Step1 Data: ' . json_encode($step1));
-        \Log::info('Step2 Data: ' . json_encode($step2));
+        // \Log::info('Step1 Data: ' . json_encode($step1));
+        // \Log::info('Step2 Data: ' . json_encode($step2));
 
         try {
             DB::beginTransaction();
