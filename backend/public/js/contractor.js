@@ -1064,23 +1064,23 @@ if (typeof window.CancelBidModal === 'undefined') {
     };
 
     // Global functions for cancel bid modal
-    function openCancelBidModal() {
+    window.openCancelBidModal = function() {
         if (window.CancelBidModal) {
             window.CancelBidModal.open();
         }
-    }
+    };
 
-    function closeCancelBidModal() {
+    window.closeCancelBidModal = function() {
         if (window.CancelBidModal) {
             window.CancelBidModal.close();
         }
-    }
+    };
 
-    function confirmCancelBid() {
+    window.confirmCancelBid = function() {
         if (window.CancelBidModal) {
             window.CancelBidModal.confirm();
         }
-    }
+    };
 
     // Register modal click handler
     if (typeof window.modalClickHandlers === 'undefined') {

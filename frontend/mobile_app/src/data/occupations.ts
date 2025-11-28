@@ -142,4 +142,4 @@ export const OCCUPATIONS = [
   'Self-Employed',
   'Freelancer',
   'Other',
-].sort(); // Sort alphabetically for better UX
+].sort();

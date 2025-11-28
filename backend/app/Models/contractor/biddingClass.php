@@ -22,9 +22,9 @@ class biddingClass
                 'project_relationships.project_post_status',
                 'project_relationships.bidding_due as bidding_deadline',
                 'project_relationships.created_at',
-                DB::raw("CONCAT(property_owners.first_name, ' ', COALESCE(property_owners.middle_name, ''), ' ', property_owners.last_name) as owner_name")
-            )
-            ->first();
+                    DB::raw("CONCAT(property_owners.first_name, ' ', COALESCE(property_owners.middle_name, ''), ' ', property_owners.last_name) as owner_name")
+                )
+                ->first();
     }
 
     public function getProjectFiles($projectId)

@@ -11,6 +11,9 @@
       "web"
     ],
     "userInterfaceStyle": "light",
+    "statusBar": {
+      "hidden": true
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -18,7 +21,8 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.legatura.mobile"
+      "package": "com.legatura.mobile",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro"

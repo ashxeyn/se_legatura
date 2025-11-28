@@ -5,7 +5,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.q
 // Role Switching Function for Dashboard
 function switchRole(role, buttonElement) {
     console.log('switchRole called with role:', role);
-    
+
     const target = buttonElement || (window.event ? window.event.target : null);
 
     // Show loading state if target exists

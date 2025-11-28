@@ -238,7 +238,8 @@ class projectsClass
                 'ct.type_name',
                 'u.user_id',
                 'u.username',
-                'u.profile_pic'
+                'u.profile_pic',
+                'u.cover_photo'
             );
 
         // Exclude current user if they have a contractor account

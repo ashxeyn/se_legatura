@@ -522,5 +522,29 @@ class projectsController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * API endpoint to get active contractors for mobile app
+     * Used in property owner's feed/homepage
+     */
+    public function apiGetContractors(Request $request)
+    {
+        try {
+            // Get active contractors (no authentication required for browsing)
+            $contractors = $this->projectsClass->getActiveContractors();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Contractors retrieved successfully',
+                'data' => $contractors
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving contractors: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
 

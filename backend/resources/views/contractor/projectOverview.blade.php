@@ -804,6 +804,7 @@
             }
         }
     </script>
+    <script src="{{ asset('js/contractor.js') }}"></script>
 </body>
 </html>
 

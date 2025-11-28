@@ -1077,11 +1077,16 @@ class authController extends Controller
             $result = $this->authService->login($request->email, $request->password);
 
             if ($result['success']) {
+                $user = $result['user'];
+                // Create Sanctum token for mobile app
+                $token = $user->createToken('mobile-app')->plainTextToken;
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Login successful',
-                    'user' => $result['user'],
-                    'userType' => $result['userType']
+                    'user' => $user,
+                    'userType' => $result['userType'],
+                    'token' => $token
                 ], 200);
             } else {
                 return response()->json([

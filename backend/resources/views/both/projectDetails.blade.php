@@ -426,14 +426,14 @@
 
                                 @if($isOwner)
                                     @if(isset($milestone['setup_status']) && $milestone['setup_status'] === 'approved')
-                                        <h5>Progress Reports:</h5>
-                                        @if(count($item['progress_files']) > 0)
+                                    <h5>Progress Reports:</h5>
+                                    @if(count($item['progress_files']) > 0)
                                             @foreach($item['progress_files'] as $progress)
-                                                <div class="file-item">
+                                            <div class="file-item">
                                                     <strong>Purpose: {{ $progress->purpose }}</strong>
                                                     <span class="file-status status-{{ $progress->progress_status }}">
                                                         {{ ucfirst(str_replace('_', ' ', $progress->progress_status)) }}
-                                                    </span>
+                                                </span>
                                                     <p><small>Submitted: {{ date('M d, Y h:i A', strtotime($progress->submitted_at)) }}</small></p>
 
                                                     @if(isset($progress->files) && count($progress->files) > 0)
@@ -447,16 +447,16 @@
                                                                 </li>
                                                             @endforeach
                                                         </ul>
-                                                    @endif
+                                                @endif
 
                                                     @if($progress->progress_status == 'submitted' || $progress->progress_status == 'under_review')
                                                         <button class="btn btn-success" onclick="ProgressApprove.open({{ $progress->progress_id }})">Approve</button>
                                                         <button class="btn btn-danger" onclick="rejectProgress({{ $progress->progress_id }}, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">Reject / File Dispute</button>
-                                                    @endif
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <div class="empty-state">No progress reports uploaded yet.</div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <div class="empty-state">No progress reports uploaded yet.</div>
                                         @endif
 
                                         <h5 style="margin-top:12px;">Payment Validations:</h5>
@@ -510,43 +510,43 @@
                                     @endif
                                 @else
                                     @if(isset($milestone['setup_status']) && $milestone['setup_status'] === 'approved')
-                                        @php
-                                            $canUpload = true;
-                                            $hasNeedsRevision = false;
-                                            if (count($item['progress_files']) > 0) {
+                                    @php
+                                        $canUpload = true;
+                                        $hasNeedsRevision = false;
+                                        if (count($item['progress_files']) > 0) {
                                                 foreach ($item['progress_files'] as $progress) {
-                                                    // Allow upload if status is needs_revision or deleted
+                                                // Allow upload if status is needs_revision or deleted
                                                     if (!in_array($progress->progress_status, ['needs_revision', 'deleted'])) {
-                                                        $canUpload = false;
-                                                    }
+                                                    $canUpload = false;
+                                                }
                                                     if ($progress->progress_status === 'needs_revision') {
-                                                        $hasNeedsRevision = true;
-                                                    }
+                                                    $hasNeedsRevision = true;
                                                 }
                                             }
-                                        @endphp
+                                        }
+                                    @endphp
 
-                                        <div style="margin: 15px 0;">
-                                            @if($canUpload)
-                                                <button class="btn btn-success" onclick="openProgressUploadModal({{ $item['item_id'] }}, {{ $project->project_id }}, '{{ addslashes($item['milestone_item_title']) }}')">
-                                                    {{ $hasNeedsRevision ? 'Upload Revised Progress' : 'Upload Progress' }}
-                                                </button>
-                                            @else
-                                                <button class="btn btn-success" disabled style="opacity: 0.5; cursor: not-allowed;" title="You already have a progress report submitted. Wait for review before uploading a new one.">
-                                                    Upload Progress
-                                                </button>
-                                                <p style="color: #856404; font-size: 14px; margin-top: 5px;">
-                                                    <em>You already have a progress report for this milestone. You can upload a new report once the current one is reviewed.</em>
-                                                </p>
-                                            @endif
-                                        </div>
+                                    <div style="margin: 15px 0;">
+                                        @if($canUpload)
+                                            <button class="btn btn-success" onclick="openProgressUploadModal({{ $item['item_id'] }}, {{ $project->project_id }}, '{{ addslashes($item['milestone_item_title']) }}')">
+                                                {{ $hasNeedsRevision ? 'Upload Revised Progress' : 'Upload Progress' }}
+                                            </button>
+                                        @else
+                                            <button class="btn btn-success" disabled style="opacity: 0.5; cursor: not-allowed;" title="You already have a progress report submitted. Wait for review before uploading a new one.">
+                                                Upload Progress
+                                            </button>
+                                            <p style="color: #856404; font-size: 14px; margin-top: 5px;">
+                                                <em>You already have a progress report for this milestone. You can upload a new report once the current one is reviewed.</em>
+                                            </p>
+                                        @endif
+                                    </div>
 
-                                        @if(count($item['progress_files']) > 0)
-                                            <div class="progress-files">
+                                    @if(count($item['progress_files']) > 0)
+                                        <div class="progress-files">
                                                 <h5>Uploaded Progress Reports:</h5>
-                                                <div class="file-list">
+                                            <div class="file-list">
                                                     @foreach($item['progress_files'] as $progress)
-                                                        <div class="file-item">
+                                                    <div class="file-item">
                                                             <strong>Purpose: {{ $progress->purpose }}</strong>
                                                             <span class="file-status status-{{ $progress->progress_status }}">
                                                                 {{ ucfirst(str_replace('_', ' ', $progress->progress_status)) }}
@@ -557,9 +557,9 @@
                                                                 <ul>
                                                                     @foreach($progress->files as $file)
                                                                         <li>
-                                                                            <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
+                                                        <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
                                                                                 {{ $file->original_name ?? basename($file->file_path) }}
-                                                                            </a>
+                                                        </a>
                                                                         </li>
                                                                     @endforeach
                                                                 </ul>
@@ -567,45 +567,45 @@
                                                             @if($progress->progress_status === 'needs_revision' || $progress->progress_status === 'submitted')
                                                                 <button class="btn btn-warning" onclick="editProgress({{ $progress->progress_id }})">Edit</button>
                                                                 <button class="btn btn-danger" onclick="deleteProgress({{ $progress->progress_id }})">Delete</button>
-                                                            @endif
-                                                        </div>
-                                                    @endforeach
-                                                </div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
                                             </div>
-                                        @endif
+                                        </div>
+                                    @endif
 
-                                        <h5>Payment Validations:</h5>
-                                        @if(isset($item['payments']) && count($item['payments']) > 0)
-                                            @foreach($item['payments'] as $payment)
+                                    <h5>Payment Validations:</h5>
+                                    @if(isset($item['payments']) && count($item['payments']) > 0)
+                                        @foreach($item['payments'] as $payment)
                                                 @if($payment->payment_status !== 'deleted')
                                                     <div class="file-item {{ $payment->payment_status === 'approved' ? 'payment-approved' : '' }}">
-                                                    <strong>Payment: ₱{{ number_format($payment->amount, 2) }}</strong>
+                                                <strong>Payment: ₱{{ number_format($payment->amount, 2) }}</strong>
                                                         @if($payment->payment_status === 'approved')
-                                                        <span class="file-status status-approved">Approved</span>
-                                                    @else
+                                                    <span class="file-status status-approved">Approved</span>
+                                                @else
                                                             <span class="file-status status-{{ $payment->payment_status }}">{{ ucfirst(str_replace('_', ' ', $payment->payment_status)) }}</span>
-                                                    @endif
-                                                    <p><strong>Type:</strong> {{ ucfirst(str_replace('_', ' ', $payment->payment_type)) }}</p>
-                                                    @if($payment->transaction_number)
-                                                        <p><strong>Transaction #:</strong> {{ $payment->transaction_number }}</p>
-                                                    @endif
+                                                @endif
+                                                <p><strong>Type:</strong> {{ ucfirst(str_replace('_', ' ', $payment->payment_type)) }}</p>
+                                                @if($payment->transaction_number)
+                                                    <p><strong>Transaction #:</strong> {{ $payment->transaction_number }}</p>
+                                                @endif
                                                         <p><small>Date: {{ date('M d, Y', strtotime($payment->transaction_date)) }}</small></p>
-                                                    <a href="{{ asset('storage/' . $payment->receipt_photo) }}" target="_blank" class="btn btn-primary">View Receipt</a>
+                                                <a href="{{ asset('storage/' . $payment->receipt_photo) }}" target="_blank" class="btn btn-primary">View Receipt</a>
 
                                                         @if($payment->payment_status !== 'approved' && $payment->payment_status !== 'deleted')
                                                             @if($payment->payment_status === 'submitted')
                                                                 <button class="btn btn-success" onclick="openApprovePaymentModal({{ $payment->payment_id }})">Approve</button>
                                                             @endif
-                                                            <button class="btn btn-danger" onclick="disputePayment({{ $payment->payment_id }}, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">Dispute Payment</button>
+                                                    <button class="btn btn-danger" onclick="disputePayment({{ $payment->payment_id }}, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">Dispute Payment</button>
                                                         @endif
                                                 </div>
                                                 @endif
-                                            @endforeach
-                                        @else
-                                            <div class="empty-state">
-                                                <p>No payment validations uploaded yet.</p>
-                                                <button class="btn btn-danger" onclick="disputePayment(0, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">File Payment Dispute</button>
-                                            </div>
+                                        @endforeach
+                                    @else
+                                        <div class="empty-state">
+                                            <p>No payment validations uploaded yet.</p>
+                                            <button class="btn btn-danger" onclick="disputePayment(0, {{ $item['item_id'] }}, {{ $project->project_id }}, {{ $milestone['milestone_id'] }})">File Payment Dispute</button>
+                                        </div>
                                         @endif
                                     @endif
                                 @endif
