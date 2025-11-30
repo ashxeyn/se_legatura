@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\contractor\contractorClass;
 
 class cprocessController extends Controller
-{ 
+{
     protected $contractorClass;
 
     public function __construct()
@@ -250,14 +250,14 @@ class cprocessController extends Controller
         // Check if editing existing milestone
         $milestoneId = $request->input('milestone_id');
         $isEditing = !empty($milestoneId);
-        
+
         if (!$isEditing && $this->contractorClass->contractorHasMilestoneForProject($validated['project_id'], $contractor->contractor_id)) {
             return response()->json([
                 'success' => false,
                 'errors' => ['This project already has a milestone plan.']
             ], 409);
         }
-        
+
         // If editing, verify milestone belongs to contractor
         if ($isEditing) {
             $existingMilestone = $this->contractorClass->getMilestoneById($milestoneId, $contractor->contractor_id);
@@ -380,7 +380,7 @@ class cprocessController extends Controller
 
         $isEditing = !empty($step1['milestone_id']);
         $milestoneId = $isEditing ? $step1['milestone_id'] : null;
-        
+
         // Format dates for database (datetime format)
         $startDateFormatted = date('Y-m-d 00:00:00', $startDate);
         $endDateFormatted = date('Y-m-d 23:59:59', $endDate);
@@ -415,7 +415,7 @@ class cprocessController extends Controller
                     'setup_status' => 'submitted',
                     'updated_at' => now()
                 ];
-                
+
                 // Only update milestone_description if it exists in step1
                 if (isset($step1['milestone_description']) && !empty($step1['milestone_description'])) {
                     $milestoneUpdateData['milestone_description'] = $step1['milestone_description'];
@@ -423,10 +423,26 @@ class cprocessController extends Controller
                     // Use milestone_name as fallback if description is not provided
                     $milestoneUpdateData['milestone_description'] = $step1['milestone_name'];
                 }
-                
+
                 $this->contractorClass->updateMilestone($milestoneId, $milestoneUpdateData);
 
-                // Delete existing milestone items
+                // Before deleting existing milestone items, ensure there are no
+                // milestone_payments that reference those items (foreign key)
+                $blockingPaymentsCount = DB::table('milestone_payments as mp')
+                    ->join('milestone_items as mi', 'mp.item_id', '=', 'mi.item_id')
+                    ->where('mi.milestone_id', $milestoneId)
+                    ->count();
+
+                if ($blockingPaymentsCount > 0) {
+                    DB::rollBack();
+                    Log::warning("Attempt to edit milestone {$milestoneId} blocked: {$blockingPaymentsCount} payment(s) reference its items.");
+                    return response()->json([
+                        'success' => false,
+                        'errors' => ["Cannot modify milestone items because {$blockingPaymentsCount} payment(s) are associated with existing milestone items. Remove or resolve those payments before editing the milestone." ]
+                    ], 409);
+                }
+
+                // Safe to delete existing milestone items
                 $this->contractorClass->deleteMilestoneItems($milestoneId);
             } else {
                 // Create new milestone
@@ -438,10 +454,10 @@ class cprocessController extends Controller
                     'downpayment_amount' => $step2['downpayment_amount']
                 ]);
 
-                $milestoneDescription = isset($step1['milestone_description']) && !empty($step1['milestone_description']) 
-                    ? $step1['milestone_description'] 
+                $milestoneDescription = isset($step1['milestone_description']) && !empty($step1['milestone_description'])
+                    ? $step1['milestone_description']
                     : $step1['milestone_name'];
-                
+
                 $milestoneId = $this->contractorClass->createMilestone([
                     'project_id' => $step1['project_id'],
                     'contractor_id' => $step1['contractor_id'],
@@ -485,12 +501,12 @@ class cprocessController extends Controller
             Log::error('Step1 data: ' . json_encode($step1 ?? []));
             Log::error('Step2 data: ' . json_encode($step2 ?? []));
             Log::error('Items data: ' . json_encode($items ?? []));
-            
+
             $errorMessage = 'An error occurred while saving the milestone. Please try again.';
             if (config('app.debug')) {
                 $errorMessage .= ' Error: ' . $e->getMessage();
             }
-            
+
             return response()->json([
                 'success' => false,
                 'errors' => [$errorMessage]
@@ -571,7 +587,7 @@ class cprocessController extends Controller
                 'is_deleted' => 1,
                 'updated_at' => now()
             ];
-            
+
             // Try to update with reason first
             try {
                 $updateDataWithReason = array_merge($updateData, ['reason' => $request->input('reason')]);

@@ -9,11 +9,11 @@ if (typeof window.AcceptBidModal === 'undefined') {
         open: function(bidId, companyName, proposedCost, projectId) {
             this.selectedBidId = bidId;
             this.projectId = projectId;
-            
+
             const companyNameEl = document.getElementById('acceptBidCompanyName');
             const costEl = document.getElementById('acceptBidCost');
             const modal = document.getElementById('acceptBidModal');
-            
+
             if (companyNameEl) companyNameEl.textContent = companyName;
             if (costEl) {
                 costEl.textContent = proposedCost.toLocaleString('en-US', {
@@ -21,7 +21,7 @@ if (typeof window.AcceptBidModal === 'undefined') {
                     maximumFractionDigits: 2
                 });
             }
-            
+
             if (modal) {
                 modal.style.display = 'block';
                 const errorMsg = document.getElementById('acceptBidErrorMessage');
@@ -38,7 +38,7 @@ if (typeof window.AcceptBidModal === 'undefined') {
             }
             this.selectedBidId = null;
             this.projectId = null;
-            
+
             const errorMsg = document.getElementById('acceptBidErrorMessage');
             const successMsg = document.getElementById('acceptBidSuccessMessage');
             if (errorMsg) errorMsg.style.display = 'none';
@@ -53,7 +53,7 @@ if (typeof window.AcceptBidModal === 'undefined') {
             const confirmBtn = document.getElementById('confirmAcceptBtn');
             const errorMsg = document.getElementById('acceptBidErrorMessage');
             const successMsg = document.getElementById('acceptBidSuccessMessage');
-            
+
             if (confirmBtn) {
                 confirmBtn.disabled = true;
                 confirmBtn.textContent = 'Processing...';
@@ -120,7 +120,7 @@ if (typeof window.AcceptBidModal === 'undefined') {
     // Close modal when clicking outside - register handler
     if (typeof window.modalClickHandlers === 'undefined') {
         window.modalClickHandlers = [];
-        
+
         // Initialize the global click handler if not already set up
         if (!window.modalClickHandlerInitialized) {
             window.addEventListener('click', function(event) {
@@ -133,7 +133,7 @@ if (typeof window.AcceptBidModal === 'undefined') {
             window.modalClickHandlerInitialized = true;
         }
     }
-    
+
     window.modalClickHandlers.push(function(event) {
         const acceptBidModal = document.getElementById('acceptBidModal');
         if (event.target === acceptBidModal) {

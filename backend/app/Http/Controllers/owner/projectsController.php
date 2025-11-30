@@ -30,7 +30,7 @@ class projectsController extends Controller
         $userType = $user->user_type;
 
         // Determine if user is owner
-        $isOwner = ($userType === 'property_owner' || $userType === 'both') && 
+        $isOwner = ($userType === 'property_owner' || $userType === 'both') &&
                    ($currentRole === 'owner' || $currentRole === 'property_owner');
 
         // Get owner_id if user is owner
@@ -46,7 +46,7 @@ class projectsController extends Controller
         $feedItems = [];
         $feedType = 'projects'; // 'projects' or 'contractors'
         $contractorProjectsForMilestone = [];
-        
+
         if ($isOwner && $ownerId) {
             // Owner view: Show all active contractor profiles (except themselves if both)
             $excludeUserId = ($userType === 'both') ? $user->user_id : null;
@@ -56,7 +56,7 @@ class projectsController extends Controller
             // Contractor view: Show all approved projects
             $feedItems = $this->projectsClass->getApprovedProjects();
             $feedType = 'projects';
-            
+
             // Get contractor projects for milestone setup (projects where contractor is selected and no milestone exists)
             $contractor = DB::table('contractors')->where('user_id', $user->user_id)->first();
             if ($contractor) {
@@ -82,7 +82,7 @@ class projectsController extends Controller
         $userType = $user->user_type;
 
         // Only owners can create posts
-        $isOwner = ($userType === 'property_owner' || $userType === 'both') && 
+        $isOwner = ($userType === 'property_owner' || $userType === 'both') &&
                    ($currentRole === 'owner' || $currentRole === 'property_owner');
 
         if (!$isOwner) {
@@ -109,7 +109,7 @@ class projectsController extends Controller
             $userType = $user->user_type;
 
             // Verify user is owner
-            $isOwner = ($userType === 'property_owner' || $userType === 'both') && 
+            $isOwner = ($userType === 'property_owner' || $userType === 'both') &&
                        ($currentRole === 'owner' || $currentRole === 'property_owner');
 
             if (!$isOwner) {
@@ -139,8 +139,8 @@ class projectsController extends Controller
                 $validated['bidding_deadline']
             );
 
-            // Create project
-            $projectId = $this->projectsClass->createProject([
+            // Create project (include if_others_ctype when provided)
+            $projectData = [
                 'relationship_id' => $relationshipId,
                 'project_title' => $validated['project_title'],
                 'project_description' => $validated['project_description'],
@@ -151,11 +151,18 @@ class projectsController extends Controller
                 'floor_area' => $validated['floor_area'],
                 'property_type' => $validated['property_type'],
                 'type_id' => $validated['type_id']
-            ]);
+            ];
+
+            if (!empty($validated['if_others_ctype'])) {
+                $projectData['if_others_ctype'] = $validated['if_others_ctype'];
+            }
+
+            // Create project
+            $projectId = $this->projectsClass->createProject($projectData);
 
             // Ensure projects directory exists
             if (!Storage::disk('public')->exists('projects')) {
-                Storage::disk('public')->makeDirectory('projects', 0755, true);
+                Storage::disk('public')->makeDirectory('projects');
             }
 
             // Upload required files
@@ -183,7 +190,7 @@ class projectsController extends Controller
                 $blueprintFiles = $request->file('blueprint');
                 // Handle both single file and array of files
                 $files = is_array($blueprintFiles) ? $blueprintFiles : [$blueprintFiles];
-                
+
                 foreach ($files as $file) {
                     if ($file && $file->isValid()) {
                         $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
@@ -202,7 +209,7 @@ class projectsController extends Controller
                 $designFiles = $request->file('desired_design');
                 // Handle both single file and array of files
                 $files = is_array($designFiles) ? $designFiles : [$designFiles];
-                
+
                 foreach ($files as $file) {
                     if ($file && $file->isValid()) {
                         $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
@@ -267,7 +274,7 @@ class projectsController extends Controller
         $currentRole = session('current_role', $user->user_type);
         $userType = $user->user_type;
 
-        $isOwner = ($userType === 'property_owner' || $userType === 'both') && 
+        $isOwner = ($userType === 'property_owner' || $userType === 'both') &&
                    ($currentRole === 'owner' || $currentRole === 'property_owner');
 
         if (!$isOwner) {
@@ -308,7 +315,7 @@ class projectsController extends Controller
             $currentRole = session('current_role', $user->user_type);
             $userType = $user->user_type;
 
-            $isOwner = ($userType === 'property_owner' || $userType === 'both') && 
+            $isOwner = ($userType === 'property_owner' || $userType === 'both') &&
                        ($currentRole === 'owner' || $currentRole === 'property_owner');
 
             if (!$isOwner) {
@@ -347,8 +354,8 @@ class projectsController extends Controller
 
             $validated = $request->validated();
 
-            // Update project
-            $this->projectsClass->updateProject($projectId, [
+            // Update project (include if_others_ctype when provided)
+            $updateData = [
                 'project_title' => $validated['project_title'],
                 'project_description' => $validated['project_description'],
                 'project_location' => $validated['project_location'],
@@ -358,7 +365,13 @@ class projectsController extends Controller
                 'floor_area' => $validated['floor_area'],
                 'property_type' => $validated['property_type'],
                 'type_id' => $validated['type_id']
-            ]);
+            ];
+
+            if (array_key_exists('if_others_ctype', $validated)) {
+                $updateData['if_others_ctype'] = $validated['if_others_ctype'];
+            }
+
+            $this->projectsClass->updateProject($projectId, $updateData);
 
             // Update relationship bidding deadline
             if ($project->relationship_id) {
@@ -412,7 +425,7 @@ class projectsController extends Controller
             $currentRole = session('current_role', $user->user_type);
             $userType = $user->user_type;
 
-            $isOwner = ($userType === 'property_owner' || $userType === 'both') && 
+            $isOwner = ($userType === 'property_owner' || $userType === 'both') &&
                        ($currentRole === 'owner' || $currentRole === 'property_owner');
 
             if (!$isOwner) {
@@ -485,7 +498,7 @@ class projectsController extends Controller
             $userType = $user->user_type;
 
             // Verify user is owner
-            $isOwner = ($userType === 'property_owner' || $userType === 'both') && 
+            $isOwner = ($userType === 'property_owner' || $userType === 'both') &&
                        ($currentRole === 'owner' || $currentRole === 'property_owner');
 
             if (!$isOwner) {

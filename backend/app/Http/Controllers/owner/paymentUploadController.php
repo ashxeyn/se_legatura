@@ -102,6 +102,20 @@ class paymentUploadController extends Controller
 				return response()->json(['success' => false, 'message' => 'You already have a payment validation submitted for this milestone. Only payments with status rejected or deleted can be re-submitted.'], 403);
 			}
 
+			// Ensure that a contractor progress report for this milestone item exists and has been approved by the owner
+			$approvedProgress = DB::table('progress as pr')
+				->join('milestone_items as mi', 'pr.milestone_item_id', '=', 'mi.item_id')
+				->join('milestones as m', 'mi.milestone_id', '=', 'm.milestone_id')
+				->join('projects as p', 'm.project_id', '=', 'p.project_id')
+				->where('pr.milestone_item_id', $validated['item_id'])
+				->where('p.project_id', $project->project_id)
+				->where('pr.progress_status', 'approved')
+				->first();
+
+			if (!$approvedProgress) {
+				return response()->json(['success' => false, 'message' => 'Cannot upload payment validation. Contractor must submit a progress report that has been approved before payments can be uploaded.'], 403);
+			}
+
 			// Normalize transaction_date to DATE format (table uses DATE)
 			$transactionDate = null;
 			if (!empty($validated['transaction_date'])) {

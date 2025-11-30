@@ -256,12 +256,29 @@
             </div>
 
             <div class="form-group">
-                <label>Project Location <span class="required">*</span></label>
-                <input type="text" name="project_location" value="{{ old('project_location') }}" required>
-                @error('project_location')
+                <label>Barangay <span class="required">*</span></label>
+                <select name="barangay" id="project_barangay" required disabled>
+                    <option value="">Loading barangays...</option>
+                </select>
+                @error('barangay')
                     <div class="error-message">{{ $message }}</div>
                 @enderror
             </div>
+
+            <div class="form-group">
+                <label>Street / Barangay Details <span class="required">*</span></label>
+                <input type="text" name="street_address" id="street_address" value="{{ old('street_address') }}" required maxlength="255" placeholder="Street, Purok, House No. etc">
+                @error('street_address')
+                    <div class="error-message">{{ $message }}</div>
+                @enderror
+                <small style="display:block; margin-top:6px; color:#666;">City and Province are fixed to <strong>Zamboanga City</strong>, <strong>Zamboanga del Sur</strong>.</small>
+            </div>
+
+            {{-- Hidden composed location (will be set by JS before submit) --}}
+            <input type="hidden" name="project_location" id="project_location_hidden" value="{{ old('project_location') }}">
+            {{-- PSGC codes for structured backend handling --}}
+            <input type="hidden" name="project_city_code" id="project_city_code_hidden" value="{{ old('project_city_code') }}">
+            <input type="hidden" name="project_province_code" id="project_province_code_hidden" value="{{ old('project_province_code') }}">
 
             <div class="form-group">
                 <label>Budget Range (Min) <span class="required">*</span></label>
@@ -311,17 +328,37 @@
 
             <div class="form-group">
                 <label>Contractor Type Required <span class="required">*</span></label>
-                <select name="type_id" required>
+                <select name="type_id" id="project_type_id" required>
                     <option value="">Select Contractor Type</option>
+                    {{-- Render all non-"Others" options first, then place Others last --}}
+                    @php
+                        $othersOption = null;
+                    @endphp
                     @foreach($contractorTypes as $type)
-                        <option value="{{ $type->type_id }}" {{ old('type_id') == $type->type_id ? 'selected' : '' }}>
+                        @if(strtolower(trim($type->type_name)) === 'others')
+                            @php $othersOption = $type; continue; @endphp
+                        @endif
+                        <option value="{{ $type->type_id }}" data-name="{{ $type->type_name }}" {{ old('type_id') == $type->type_id ? 'selected' : '' }}>
                             {{ $type->type_name }}
                         </option>
                     @endforeach
+                    @if($othersOption)
+                        <option value="{{ $othersOption->type_id }}" data-name="{{ $othersOption->type_name }}" {{ old('type_id') == $othersOption->type_id ? 'selected' : '' }}>
+                            {{ $othersOption->type_name }}
+                        </option>
+                    @endif
                 </select>
                 @error('type_id')
                     <div class="error-message">{{ $message }}</div>
                 @enderror
+
+                <div id="other_contractor_type_container" style="display: {{ old('if_others_ctype') ? 'block' : 'none' }}; margin-top:10px;">
+                    <label for="if_others_ctype">If Others, specify contractor type <span class="required">*</span></label>
+                    <input type="text" name="if_others_ctype" id="if_others_ctype" value="{{ old('if_others_ctype') }}" maxlength="200" placeholder="Specify contractor type">
+                    @error('if_others_ctype')
+                        <div class="error-message">{{ $message }}</div>
+                    @enderror
+                </div>
             </div>
 
             <div class="form-group">
@@ -420,10 +457,10 @@
                 const container = document.getElementById(containerId);
                 const fileGroup = input.closest('.file-input-group');
                 const removeBtn = fileGroup.querySelector('.remove-file-btn');
-                
+
                 // Hide input, show file name
                 input.classList.add('has-file');
-                
+
                 // Create file name display
                 let fileNameDisplay = fileGroup.querySelector('.file-name-display');
                 if (!fileNameDisplay) {
@@ -433,10 +470,10 @@
                 }
                 fileNameDisplay.textContent = '📄 ' + file.name;
                 fileNameDisplay.classList.add('visible');
-                
+
                 // Show remove button
                 if (removeBtn) removeBtn.style.display = 'inline-block';
-                
+
                 // Show "Add More Files" button if not required field
                 if (!input.hasAttribute('required')) {
                     const addMoreBtn = container.parentElement.querySelector('.add-more-files-btn');
@@ -449,7 +486,7 @@
             const fileGroup = btn.closest('.file-input-group');
             const input = fileGroup.querySelector('.evidence-file-input');
             const fileNameDisplay = fileGroup.querySelector('.file-name-display');
-            
+
             // Reset input
             input.value = '';
             input.classList.remove('has-file');
@@ -457,7 +494,7 @@
                 fileNameDisplay.remove();
             }
             btn.style.display = 'none';
-            
+
             // Hide "Add More Files" button if no files
             const container = document.getElementById(containerId);
             const fileGroups = container.querySelectorAll('.file-input-group');
@@ -465,7 +502,7 @@
                 const fileInput = group.querySelector('.evidence-file-input');
                 return fileInput && fileInput.files && fileInput.files.length > 0;
             });
-            
+
             if (!hasFiles) {
                 const addMoreBtn = container.parentElement.querySelector('.add-more-files-btn');
                 if (addMoreBtn) addMoreBtn.classList.remove('visible');
@@ -475,19 +512,19 @@
         function addMoreFiles(containerId, fieldName) {
             const container = document.getElementById(containerId);
             const fileGroups = container.querySelectorAll('.file-input-group');
-            
+
             if (fileGroups.length >= 10) {
                 alert('Maximum of 10 files allowed');
                 return;
             }
-            
+
             const existingInput = container.querySelector('.evidence-file-input');
             const acceptAttr = existingInput ? existingInput.getAttribute('accept') : '';
             const isMultiple = fieldName === 'others';
-            
+
             const newFileGroup = document.createElement('div');
             newFileGroup.className = 'file-input-group';
-            
+
             const newInput = document.createElement('input');
             newInput.type = 'file';
             newInput.className = 'evidence-file-input';
@@ -500,7 +537,7 @@
             newInput.addEventListener('change', function() {
                 handleFileSelection(this, containerId);
             });
-            
+
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'remove-file-btn';
@@ -509,22 +546,22 @@
                 removeFileInput(this, containerId);
                 updateRemoveButtons(containerId);
             };
-            
+
             newFileGroup.appendChild(newInput);
             newFileGroup.appendChild(removeBtn);
             container.appendChild(newFileGroup);
-            
+
             updateRemoveButtons(containerId);
         }
 
         function updateRemoveButtons(containerId) {
             const container = document.getElementById(containerId);
             const fileGroups = container.querySelectorAll('.file-input-group');
-            
+
             fileGroups.forEach((group, index) => {
                 const removeBtn = group.querySelector('.remove-file-btn');
                 const fileInput = group.querySelector('.evidence-file-input');
-                
+
                 if (removeBtn && fileInput) {
                     const hasFile = fileInput.files && fileInput.files.length > 0;
                     const shouldShow = fileGroups.length > 1 || hasFile;
@@ -549,6 +586,24 @@
 
         // Form validation
         document.getElementById('projectForm').addEventListener('submit', function(e) {
+            // Compose hidden project_location from barangay (PSGC select) + street + fixed city/province
+            const barangayEl = document.getElementById('project_barangay');
+            const streetEl = document.getElementById('street_address');
+            const hiddenLocation = document.getElementById('project_location_hidden');
+            if (hiddenLocation) {
+                // prefer the human-readable barangay name stored in data-name attribute
+                const barangayVal = barangayEl && barangayEl.selectedIndex > -1
+                    ? (barangayEl.options[barangayEl.selectedIndex].getAttribute('data-name') || barangayEl.value).trim()
+                    : '';
+                const streetVal = streetEl ? streetEl.value.trim() : '';
+                const city = 'Zamboanga City';
+                const province = 'Zamboanga del Sur';
+                let composed = '';
+                if (barangayVal) composed += barangayVal + ', ';
+                if (streetVal) composed += streetVal + ', ';
+                composed += city + ', ' + province;
+                hiddenLocation.value = composed;
+            }
             const budgetMin = parseFloat(document.querySelector('input[name="budget_range_min"]').value);
             const budgetMax = parseFloat(document.querySelector('input[name="budget_range_max"]').value);
 
@@ -557,6 +612,106 @@
                 alert('Maximum budget must be greater than or equal to minimum budget.');
                 return false;
             }
+        });
+
+            // Contractor Type "Others" handling
+            (function() {
+                const typeSelect = document.getElementById('project_type_id');
+                const otherContainer = document.getElementById('other_contractor_type_container');
+                const otherInput = document.getElementById('if_others_ctype');
+
+                if (!typeSelect) return;
+
+                function toggleOther() {
+                    const selected = typeSelect.options[typeSelect.selectedIndex];
+                    const name = (selected && selected.getAttribute('data-name')) ? selected.getAttribute('data-name').toLowerCase() : '';
+                    if (name === 'others') {
+                        otherContainer.style.display = 'block';
+                        if (otherInput) otherInput.setAttribute('required', 'required');
+                    } else {
+                        otherContainer.style.display = 'none';
+                        if (otherInput) {
+                            otherInput.removeAttribute('required');
+                        }
+                    }
+                }
+
+                typeSelect.addEventListener('change', toggleOther);
+                // initial state
+                toggleOther();
+            })();
+
+        // PSGC: populate barangays for Zamboanga City (fixed province/province)
+        document.addEventListener('DOMContentLoaded', function() {
+            const barangaySelect = document.getElementById('project_barangay');
+            if (!barangaySelect) return;
+
+            // Keep a copy of old value (previous user input - name)
+            const oldBarangay = {!! json_encode(old('barangay')) !!};
+
+            // 1) fetch provinces to find Zamboanga del Sur code (be tolerant with naming)
+            fetch('/api/psgc/provinces')
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to load provinces: ' + r.status + ' ' + r.statusText);
+                    return r.json();
+                })
+                .then(provinces => {
+                    let prov = provinces.find(p => p.name && p.name.toLowerCase().includes('zamboanga del sur'));
+                    if (!prov) {
+                        // fallback: any province containing 'zamboanga' and 'sur'
+                        prov = provinces.find(p => {
+                            const n = (p.name || '').toLowerCase();
+                            return n.includes('zamboanga') && n.includes('sur');
+                        });
+                    }
+                    if (!prov) {
+                        // last resort: any province with 'zamboanga' in name
+                        prov = provinces.find(p => (p.name || '').toLowerCase().includes('zamboanga'));
+                    }
+                    if (!prov) throw new Error('Province not found in PSGC response');
+                    // populate hidden province code for backend
+                    const provInput = document.getElementById('project_province_code_hidden');
+                    if (provInput) provInput.value = prov.code;
+                    return fetch('/api/psgc/provinces/' + prov.code + '/cities');
+                })
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to load cities: ' + r.status + ' ' + r.statusText);
+                    return r.json();
+                })
+                .then(cities => {
+                    // find Zamboanga City in the province's cities (tolerant)
+                    let city = cities.find(c => c.name && c.name.toLowerCase().includes('zamboanga city'));
+                    if (!city) {
+                        city = cities.find(c => (c.name || '').toLowerCase().includes('zamboanga'));
+                    }
+                    if (!city) throw new Error('City not found in PSGC response');
+                    // populate hidden city code for backend
+                    const cityInput = document.getElementById('project_city_code_hidden');
+                    if (cityInput) cityInput.value = city.code;
+                    return fetch('/api/psgc/cities/' + city.code + '/barangays');
+                })
+                .then(r => r.json())
+                .then(barangays => {
+                    barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
+                    barangays.forEach(function(b) {
+                        const option = document.createElement('option');
+                        option.value = b.code;
+                        option.setAttribute('data-name', b.name);
+                        option.textContent = b.name;
+                        // preserve old value if it was a barangay name
+                        if (oldBarangay && oldBarangay === b.name) {
+                            option.selected = true;
+                        }
+                        barangaySelect.appendChild(option);
+                    });
+                    barangaySelect.disabled = false;
+                })
+                .catch(err => {
+                    const msg = err && err.message ? err.message : 'Unknown error';
+                    barangaySelect.innerHTML = '<option value="">Error loading barangays: ' + msg + '</option>';
+                    barangaySelect.disabled = false;
+                    console.error('Failed to load PSGC barangays for Zamboanga City:', err);
+                });
         });
     </script>
 </body>

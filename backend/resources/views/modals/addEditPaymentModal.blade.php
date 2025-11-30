@@ -1,10 +1,10 @@
 <div id="paymentModal" class="modal">
-    <div class="modal-content" style="max-width: 700px;">
+    <div class="modal-content" style="max-width: 700px; display:flex; flex-direction:column; max-height:80vh;">
         <div class="modal-header">
             <h2 id="paymentModalTitle">Upload Payment Validation</h2>
             <span class="close" onclick="PaymentModal.close()">&times;</span>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="overflow:auto; padding-right:12px;">
             <div id="paymentModalErrorMessages" class="error-message" style="display:none;"></div>
             <div id="paymentModalSuccessMessages" class="success-message" style="display:none;"></div>
 
@@ -60,7 +60,7 @@
             </div>
 
         </div>
-        <div class="modal-actions">
+        <div class="modal-actions" style="position:sticky; bottom:0; background:#fff; padding:12px 16px; display:flex; gap:8px; justify-content:flex-end; border-top:1px solid #e9ecef;">
             <button type="button" class="btn btn-secondary" id="paymentCancelBtn" onclick="PaymentModal.close()">Cancel</button>
             <button type="submit" class="btn btn-primary" id="paymentSubmitBtn">Upload Payment</button>
         </div>

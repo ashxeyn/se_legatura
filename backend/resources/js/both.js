@@ -620,3 +620,32 @@ function removeFileInput(button) {
         }
     }
 }
+
+// Dashboard search functionality
+function initializeDashboardSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.project-card');
+            cards.forEach(card => {
+                const title = card.querySelector('.project-title')?.textContent.toLowerCase() || '';
+                const description = card.querySelector('.project-description')?.textContent.toLowerCase() || '';
+                if (title.includes(searchTerm) || description.includes(searchTerm)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+}
+
+// Initialize dashboard search when DOM is ready
+if (typeof window !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeDashboardSearch);
+    } else {
+        initializeDashboardSearch();
+    }
+}

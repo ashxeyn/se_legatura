@@ -461,12 +461,29 @@
 
                                         <h5 style="margin-top:12px;">Payment Validations:</h5>
                                         @php
-                                            $canUploadPayment = true;
-                                            if (isset($item['payments']) && count($item['payments']) > 0) {
-                                                foreach ($item['payments'] as $p) {
-                                                    if (!in_array($p->payment_status ?? 'submitted', ['rejected', 'deleted'])) {
-                                                        $canUploadPayment = false;
+                                            // Require that at least one contractor progress report
+                                            // for this milestone item exists and has been approved
+                                            $hasApprovedProgress = false;
+                                            if (isset($item['progress_files']) && count($item['progress_files']) > 0) {
+                                                foreach ($item['progress_files'] as $progress) {
+                                                    if (isset($progress->progress_status) && $progress->progress_status === 'approved') {
+                                                        $hasApprovedProgress = true;
                                                         break;
+                                                    }
+                                                }
+                                            }
+
+                                            // Only allow upload when there's an approved progress
+                                            // and there are no existing active (non-rejected/non-deleted) payments
+                                            $canUploadPayment = false;
+                                            if ($hasApprovedProgress) {
+                                                $canUploadPayment = true;
+                                                if (isset($item['payments']) && count($item['payments']) > 0) {
+                                                    foreach ($item['payments'] as $p) {
+                                                        if (!in_array($p->payment_status ?? 'submitted', ['rejected', 'deleted'])) {
+                                                            $canUploadPayment = false;
+                                                            break;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -475,7 +492,17 @@
                                             @if($canUploadPayment)
                                                 <button class="btn btn-primary" onclick="PaymentModal.open('add', { item_id: {{ $item['item_id'] }}, project_id: {{ $project->project_id }}, item_title: '{{ addslashes($item['milestone_item_title']) }}' })">Upload Payment Validation</button>
                                             @else
-                                                <button class="btn btn-primary" disabled title="You already have a payment validation for this milestone. Only rejected or deleted payments may be re-submitted." style="opacity:0.6;cursor:not-allowed;">Upload Payment Validation</button>
+                                                <button class="btn btn-primary" disabled style="opacity:0.6;cursor:not-allowed;">Upload Payment Validation</button>
+                                                @php
+                                                    // Provide a clear inline reason why the button is disabled
+                                                    $disabledReason = '';
+                                                    if (!($hasApprovedProgress ?? false)) {
+                                                        $disabledReason = 'No approved progress report yet. The contractor must submit a progress report and you must approve it before uploading payment validations.';
+                                                    } else {
+                                                        $disabledReason = 'You already have an active payment validation for this milestone. Only rejected or deleted payments may be re-submitted.';
+                                                    }
+                                                @endphp
+                                                <p style="color:#856404;font-size:14px;margin-top:6px;margin-bottom:0;">{{ $disabledReason }}</p>
                                             @endif
                                         </div>
 

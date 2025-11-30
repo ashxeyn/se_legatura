@@ -10,7 +10,7 @@ class projectsClass
     {
         // Convert datetime to date if needed
         $biddingDue = date('Y-m-d', strtotime($biddingDeadline));
-        
+
         return DB::table('project_relationships')->insertGetId([
             'owner_id' => $ownerId,
             'project_post_status' => 'under_review',
@@ -33,6 +33,7 @@ class projectsClass
             'floor_area' => $data['floor_area'],
             'property_type' => $data['property_type'],
             'type_id' => $data['type_id'],
+            'if_others_ctype' => $data['if_others_ctype'] ?? null,
             'to_finish' => $data['to_finish'] ?? null,
             'project_status' => 'open'
         ]);
@@ -141,27 +142,33 @@ class projectsClass
 
     public function updateProject($projectId, $data)
     {
+        $update = [
+            'project_title' => $data['project_title'],
+            'project_description' => $data['project_description'],
+            'project_location' => $data['project_location'],
+            'budget_range_min' => $data['budget_range_min'],
+            'budget_range_max' => $data['budget_range_max'],
+            'lot_size' => $data['lot_size'],
+            'floor_area' => $data['floor_area'],
+            'property_type' => $data['property_type'],
+            'type_id' => $data['type_id'],
+            'to_finish' => $data['to_finish'] ?? null
+        ];
+
+        if (array_key_exists('if_others_ctype', $data)) {
+            $update['if_others_ctype'] = $data['if_others_ctype'];
+        }
+
         return DB::table('projects')
             ->where('project_id', $projectId)
-            ->update([
-                'project_title' => $data['project_title'],
-                'project_description' => $data['project_description'],
-                'project_location' => $data['project_location'],
-                'budget_range_min' => $data['budget_range_min'],
-                'budget_range_max' => $data['budget_range_max'],
-                'lot_size' => $data['lot_size'],
-                'floor_area' => $data['floor_area'],
-                'property_type' => $data['property_type'],
-                'type_id' => $data['type_id'],
-                'to_finish' => $data['to_finish'] ?? null
-            ]);
+            ->update($update);
     }
 
     public function updateProjectRelationship($relationshipId, $biddingDeadline)
     {
         // Convert datetime to date if needed
         $biddingDue = date('Y-m-d', strtotime($biddingDeadline));
-        
+
         return DB::table('project_relationships')
             ->where('rel_id', $relationshipId)
             ->update([
@@ -279,9 +286,9 @@ class projectsClass
                 'u.profile_pic',
                 DB::raw('COUNT(DISTINCT bf.file_id) as file_count')
             )
-            ->groupBy('b.bid_id', 'b.proposed_cost', 'b.estimated_timeline', 'b.contractor_notes', 
-                     'b.bid_status', 'b.submitted_at', 'b.decision_date', 'c.contractor_id', 
-                     'c.company_name', 'c.years_of_experience', 'c.company_email', 'c.company_phone', 
+            ->groupBy('b.bid_id', 'b.proposed_cost', 'b.estimated_timeline', 'b.contractor_notes',
+                     'b.bid_status', 'b.submitted_at', 'b.decision_date', 'c.contractor_id',
+                     'c.company_name', 'c.years_of_experience', 'c.company_email', 'c.company_phone',
                      'c.company_website', 'c.completed_projects', 'u.username', 'u.profile_pic')
             ->orderBy('b.submitted_at', 'desc')
             ->get();

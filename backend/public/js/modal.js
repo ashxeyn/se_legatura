@@ -28,7 +28,7 @@ if (typeof window.DisputeModal === 'undefined') {
                     // Create file name display div
                     const fileNameDisplay = document.createElement('div');
                     fileNameDisplay.className = 'file-name-display visible';
-                    fileNameDisplay.textContent = tempInput.files[0].name;
+                    fileNameDisplay.textContent = '📄 ' + tempInput.files[0].name;
 
                     const newInput = document.createElement('input');
                     newInput.type = 'file';
@@ -84,7 +84,7 @@ if (typeof window.DisputeModal === 'undefined') {
                     fileGroup.insertBefore(fileNameDisplay, input);
                 }
 
-                fileNameDisplay.textContent = input.files[0].name;
+                fileNameDisplay.textContent = '📄 ' + input.files[0].name;
                 fileNameDisplay.classList.add('visible');
 
                 const removeBtn = fileGroup.querySelector('.remove-file-btn');
@@ -816,39 +816,21 @@ if (typeof window.PaymentModal === 'undefined') {
 
             // reset file input container; include existing receipt section and a single file input
             const fileContainer = document.getElementById('payment-file-upload-container');
-            const isEdit = isEditInput.value === '1';
-            
-            // When editing, don't show "choose file again" button - only show file input for adding another file
-            // When adding, show the file input normally (which acts as "choose file")
-            if (isEdit) {
-                // Edit mode: show existing receipt link but hide "choose file again" button
-                fileContainer.innerHTML = `
-                    <div id="existingReceiptSection" style="display:none; margin-bottom:8px;">
-                        <div id="existingReceiptLink" style="margin-bottom:6px;"></div>
-                    </div>
-                    <div class="file-input-group">
-                        <input type="file" name="receipt_photo" accept=".jpg,.jpeg,.png,.pdf" class="evidence-file-input">
-                    </div>
-                `;
-            } else {
-                // Add mode: show file input normally (acts as "choose file")
-                fileContainer.innerHTML = `
-                    <div id="existingReceiptSection" style="display:none; margin-bottom:8px;">
-                        <div id="existingReceiptLink" style="margin-bottom:6px;"></div>
-                        <button type="button" id="chooseFileAgainBtn" class="btn-secondary">Choose file again</button>
-                    </div>
-                    <div class="file-input-group">
-                        <input type="file" name="receipt_photo" accept=".jpg,.jpeg,.png,.pdf" class="evidence-file-input">
-                    </div>
-                `;
-            }
+            fileContainer.innerHTML = `
+                <div id="existingReceiptSection" style="display:none; margin-bottom:8px;">
+                    <div id="existingReceiptLink" style="margin-bottom:6px;"></div>
+                    <button type="button" id="chooseFileAgainBtn" class="btn-secondary">Choose file again</button>
+                </div>
+                <div class="file-input-group">
+                    <input type="file" name="receipt_photo" accept=".jpg,.jpeg,.png,.pdf" class="evidence-file-input">
+                </div>
+            `;
 
             // attach file input handler using DisputeModal helper
             const newFileInput = fileContainer.querySelector('.evidence-file-input');
             const chooseFileBtn = document.getElementById('chooseFileAgainBtn');
             const existingSection = document.getElementById('existingReceiptSection');
 
-            // Only attach "choose file again" button handler if it exists (i.e., in add mode)
             if (chooseFileBtn) {
                 chooseFileBtn.addEventListener('click', function() {
                     // trigger file input to allow user to pick a new file
@@ -877,7 +859,7 @@ if (typeof window.PaymentModal === 'undefined') {
             }
 
             // If we're in edit mode and paymentData has an existing receipt, show it
-            if (isEdit && typeof paymentData !== 'undefined' && paymentData && paymentData.receipt_photo) {
+            if (isEditInput && isEditInput.value === '1' && typeof paymentData !== 'undefined' && paymentData && paymentData.receipt_photo) {
                 const linkDiv = document.getElementById('existingReceiptLink');
                 if (linkDiv) {
                     const url = '/storage/' + paymentData.receipt_photo;
@@ -914,6 +896,7 @@ if (typeof window.PaymentModal === 'undefined') {
 
                     fetch(url, {
                         method: 'POST',
+                        credentials: 'same-origin',
                         headers: headers,
                         body: fd
                     })
@@ -963,7 +946,7 @@ if (typeof window.PaymentDelete === 'undefined') {
         confirm: function() {
             if (!this.paymentToDelete) return;
             const pid = this.paymentToDelete; this.close();
-            fetch(`/owner/payment/${pid}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': getCsrfToken(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            fetch(`/owner/payment/${pid}`, { method: 'DELETE', credentials: 'same-origin', headers: { 'X-CSRF-TOKEN': getCsrfToken(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(r => r.json()).then(res => { if (res.success) { alert(res.message || 'Deleted'); setTimeout(() => location.reload(), 700); } else { alert(res.message || 'Error deleting'); } }).catch(err => { console.error(err); alert('Error deleting payment'); });
         }
     };
@@ -1152,7 +1135,7 @@ if (typeof window.ProgressModal === 'undefined') {
                         const li = document.createElement('li');
                         li.id = 'progress-file-' + file.file_id;
                         li.innerHTML = `
-                            <span> ${file.original_name || file.file_path.split('/').pop()}</span>
+                            <span>📄 ${file.original_name || file.file_path.split('/').pop()}</span>
                             <button type="button" onclick="ProgressModal.markFileForRemoval(${file.file_id})">Remove</button>
                         `;
                         filesList.appendChild(li);
@@ -1304,10 +1287,23 @@ if (typeof window.ProgressApprove === 'undefined') {
             if (!this.progressToApprove) return;
 
             const progressId = this.progressToApprove;
-            this.close();
+
+            const modal = document.getElementById('approveProgressModal');
+            const errDiv = document.getElementById('approveProgressErrorMessage');
+            const successDiv = document.getElementById('approveProgressSuccessMessage');
+
+            if (errDiv) { errDiv.style.display = 'none'; errDiv.innerHTML = ''; }
+            if (successDiv) { successDiv.style.display = 'none'; successDiv.innerHTML = ''; }
+
+            // Show a simple loading state in the modal (disable buttons)
+            const confirmBtn = modal ? modal.querySelector('.modal-actions .btn-primary') : null;
+            const cancelBtn = modal ? modal.querySelector('.modal-actions .btn-secondary') : null;
+            if (confirmBtn) confirmBtn.disabled = true;
+            if (cancelBtn) cancelBtn.disabled = true;
 
             fetch(`/contractor/progress/approve/${progressId}`, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'X-CSRF-TOKEN': getCsrfToken(),
                     'Accept': 'application/json',
@@ -1318,16 +1314,39 @@ if (typeof window.ProgressApprove === 'undefined') {
             })
             .then(response => response.json())
             .then(result => {
+                if (confirmBtn) confirmBtn.disabled = false;
+                if (cancelBtn) cancelBtn.disabled = false;
+
                 if (result.success) {
-                    alert(result.message || 'Progress report approved successfully');
-                    setTimeout(() => { location.reload(); }, 1000);
+                    if (successDiv) {
+                        successDiv.innerHTML = '<p>' + (result.message || 'Progress report approved successfully') + '</p>';
+                        successDiv.style.display = 'block';
+                    } else {
+                        // fallback to alert if modal elements missing
+                        alert(result.message || 'Progress report approved successfully');
+                    }
+
+                    // Close modal after a brief delay to show message
+                    setTimeout(() => { this.close(); location.reload(); }, 1200);
                 } else {
-                    alert(result.message || 'Error approving progress report');
+                    if (errDiv) {
+                        errDiv.innerHTML = result.message || 'Error approving progress report';
+                        errDiv.style.display = 'block';
+                    } else {
+                        alert(result.message || 'Error approving progress report');
+                    }
                 }
             })
             .catch(error => {
+                if (confirmBtn) confirmBtn.disabled = false;
+                if (cancelBtn) cancelBtn.disabled = false;
                 console.error('Approve error:', error);
-                alert('An error occurred while approving the progress report.');
+                if (errDiv) {
+                    errDiv.innerHTML = 'An error occurred while approving the progress report.';
+                    errDiv.style.display = 'block';
+                } else {
+                    alert('An error occurred while approving the progress report.');
+                }
             });
         }
     };

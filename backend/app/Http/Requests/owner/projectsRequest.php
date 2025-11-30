@@ -5,6 +5,7 @@ namespace App\Http\Requests\Owner;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\DB;
 
 class projectsRequest extends FormRequest
 {
@@ -36,6 +37,18 @@ class projectsRequest extends FormRequest
             'others.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240'
         ];
 
+        // If selected contractor type is 'Others', require the free-text field
+        try {
+            $othersType = DB::table('contractor_types')
+                ->whereRaw("LOWER(TRIM(type_name)) = 'others'")
+                ->first();
+            if ($othersType && intval($this->input('type_id')) === intval($othersType->type_id)) {
+                $rules['if_others_ctype'] = 'required|string|max:200';
+            }
+        } catch (\Exception $e) {
+            // ignore DB errors and don't apply conditional rule
+        }
+
         return $rules;
     }
 
@@ -59,6 +72,9 @@ class projectsRequest extends FormRequest
             'property_type.in' => 'Invalid property type selected.',
             'type_id.required' => 'Contractor type is required.',
             'type_id.exists' => 'Invalid contractor type selected.',
+            'if_others_ctype.required' => 'Please specify the contractor type when selecting Others.',
+            'if_others_ctype.string' => 'Invalid value for specified contractor type.',
+            'if_others_ctype.max' => 'Specified contractor type cannot exceed 200 characters.',
             'bidding_deadline.required' => 'Bidding deadline is required.',
             'bidding_deadline.date' => 'Bidding deadline must be a valid date.',
             'bidding_deadline.after' => 'Bidding deadline must be in the future.',

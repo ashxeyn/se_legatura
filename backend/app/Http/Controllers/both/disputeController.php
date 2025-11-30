@@ -385,7 +385,7 @@ class disputeController extends Controller
         $userType = $user->user_type;
 
         // Determine if user is contractor
-        $isContractor = ($userType === 'contractor' || $userType === 'both') && 
+        $isContractor = ($userType === 'contractor' || $userType === 'both') &&
                        ($currentRole === 'contractor');
 
         $projects = $this->disputeClass->getUserProjects($userId);
@@ -465,7 +465,7 @@ class disputeController extends Controller
             // Legacy: compare user_id directly
             $hasOwnerAccess = ($project->owner_id == $userId);
         }
-        
+
         $hasContractorAccess = ($project->contractor_user_id == $userId);
 
         if (!$hasOwnerAccess && !$hasContractorAccess) {
@@ -500,6 +500,33 @@ class disputeController extends Controller
             }
 
             if ($data->item_id) {
+                // Load progress files and payments for the item
+                $progressFiles = $this->disputeClass->getProgressFilesByItem($data->item_id);
+                $payments = $this->disputeClass->getPaymentsByItem($data->item_id);
+
+                // Compute flags used by the view to decide whether owner may upload payments
+                $hasApprovedProgress = false;
+                if ($progressFiles && count($progressFiles) > 0) {
+                    foreach ($progressFiles as $pf) {
+                        if (isset($pf->progress_status) && $pf->progress_status === 'approved') {
+                            $hasApprovedProgress = true;
+                            break;
+                        }
+                    }
+                }
+
+                $hasActivePayment = false;
+                if ($payments && count($payments) > 0) {
+                    foreach ($payments as $p) {
+                        if (!in_array($p->payment_status ?? 'submitted', ['rejected', 'deleted'])) {
+                            $hasActivePayment = true;
+                            break;
+                        }
+                    }
+                }
+
+                $canUploadPayment = ($hasApprovedProgress && !$hasActivePayment);
+
                 $milestones[$data->milestone_id]['items'][] = [
                     'item_id' => $data->item_id,
                     'milestone_item_title' => $data->milestone_item_title,
@@ -508,8 +535,11 @@ class disputeController extends Controller
                     'milestone_item_cost' => $data->milestone_item_cost,
                     'date_to_finish' => $data->date_to_finish,
                     'sequence_order' => $data->sequence_order,
-                    'progress_files' => $this->disputeClass->getProgressFilesByItem($data->item_id),
-                    'payments' => $this->disputeClass->getPaymentsByItem($data->item_id)
+                    'progress_files' => $progressFiles,
+                    'payments' => $payments,
+                    'has_approved_progress' => $hasApprovedProgress,
+                    'has_active_payment' => $hasActivePayment,
+                    'can_upload_payment' => $canUploadPayment
                 ];
             }
         }
